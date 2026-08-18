@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Codex Touch Minimal Status Bar Demo</title>
+  <style>
+    :root { color-scheme: dark; font-family: Arial, sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #05080b; color: #d9e2e8; }
+    main { display: grid; gap: 18px; justify-items: center; padding: 24px; }
+    .screen { width: min(466px, 88vw); aspect-ratio: 1; }
+    svg { width: 100%; height: 100%; display: block; }
+    nav { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    button { border: 1px solid #334854; border-radius: 999px; background: #16242c; color: #c9d6dd; padding: 8px 14px; cursor: pointer; }
+    button[aria-pressed="true"] { border-color: #35d8e5; color: #effcff; background: #1c3d47; }
+    .note { margin: 0; color: #7f929d; font-size: 13px; }
+    .screen { touch-action: none; user-select: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="screen" aria-label="466 by 466 circular display preview">
+      <svg viewBox="0 0 466 466" role="img" aria-labelledby="title desc">
+        <title id="title">Minimal circular status bar</title>
+        <desc id="desc">A compact top overlay with Wi-Fi, battery percent, battery and server icons.</desc>
+        <defs>
+          <clipPath id="round-screen"><circle cx="233" cy="233" r="225"/></clipPath>
+          <linearGradient id="quota" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stop-color="#43d67f"/>
+            <stop offset=".42" stop-color="#34d9e7"/>
+            <stop offset=".78" stop-color="#f5a641"/>
+            <stop offset="1" stop-color="#f05b69"/>
+          </linearGradient>
+        </defs>
+        <circle cx="233" cy="233" r="233" fill="#05080b"/>
+        <g clip-path="url(#round-screen)">
+          <rect width="466" height="466" fill="#111820"/>
+
+          <g id="page-home" class="page" style="display: block">
+          <g id="page-content" transform="translate(0 -28)">
+          <text x="233" y="126" fill="#d4dee7" font-size="16" text-anchor="middle" letter-spacing="1">ACTIVE CODEX SESSION</text>
+          <line x1="134" y1="139" x2="134" y2="382" stroke="#41515f"/>
+          <line x1="332" y1="139" x2="332" y2="382" stroke="#41515f"/>
+
+          <text x="84" y="163" fill="#b9c5d0" font-size="14" text-anchor="middle">SESSION</text>
+          <text x="84" y="181" fill="#b9c5d0" font-size="14" text-anchor="middle">ACTIONS</text>
+          <rect x="38" y="205" width="92" height="145" rx="14" fill="#22364a"/>
+          <g transform="translate(84 242)" fill="none" stroke="#5be7ee" stroke-width="3" stroke-linecap="round">
+            <rect x="-15" y="-18" width="30" height="36" rx="5"/>
+            <path d="M-9 -7h6m3 0h9M-9 2h6m3 0h9M-9 11h6m3 0h9"/>
+          </g>
+
+          <text x="84" y="289" fill="#f1f6fa" font-size="13" text-anchor="middle">MANAGE</text>
+          <text x="84" y="311" fill="#f1f6fa" font-size="13" text-anchor="middle">TASKS</text>
+          <text x="84" y="333" fill="#d4dee7" font-size="12" text-anchor="middle">(D/A/C/B)</text>
+
+          <text x="382" y="172" fill="#b9c5d0" font-size="14" text-anchor="middle">APPROVALS</text>
+          <rect x="336" y="205" width="92" height="145" rx="14" fill="#4a3032"/>
+          <g transform="translate(382 242)" fill="#32dde8" stroke="#32dde8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M0 -22L-23 17H23Z" fill="#32dde8"/>
+            <path d="M0 -10v15" stroke="#10202a"/>
+            <circle cx="0" cy="11" r="2.5" fill="#10202a" stroke="none"/>
+          </g>
+          <text x="382" y="289" fill="#f1f6fa" font-size="12" text-anchor="middle">APPROVAL</text>
+          <rect x="344" y="307" width="76" height="32" rx="12" fill="#43c8d7"/>
+          <text x="382" y="328" fill="#fff3d5" font-size="12" text-anchor="middle">OPEN</text>
+
+          <circle cx="233" cy="274" r="96" fill="none" stroke="#26323d" stroke-width="10"/>
+          <path d="M233 178 A96 96 0 1 1 157 333" fill="none" stroke="url(#quota)" stroke-width="10" stroke-linecap="round"/>
+          <circle cx="233" cy="274" r="79" fill="#1a2a35"/>
+          <text x="233" y="224" fill="#22d9e3" font-size="16" text-anchor="middle">CODEX LIVE</text>
+          <text x="233" y="285" fill="#5be7ee" font-size="53" font-weight="bold" text-anchor="middle">82%</text>
+          <text x="233" y="316" fill="#9fe7ec" font-size="16" text-anchor="middle">SESSION IN</text>
+          <text x="233" y="338" fill="#9fe7ec" font-size="16" text-anchor="middle">PROGRESS</text>
+
+          <line x1="62" y1="393" x2="404" y2="393" stroke="#41515f"/>
+          <g fill="#243444">
+            <rect x="78" y="376" width="120" height="21" rx="9"/><rect x="268" y="376" width="120" height="21" rx="9"/>
+            <rect x="91" y="401" width="120" height="21" rx="9"/><rect x="255" y="401" width="120" height="21" rx="9"/>
+          </g>
+          <g font-size="12" fill="#e8eef5">
+            <text x="99" y="391">A1: RUN</text><text x="289" y="391">A2: DONE</text>
+            <text x="112" y="416">A3: INPUT</text><text x="276" y="416">A4: IDLE</text>
+          </g>
+          </g>
+          </g>
+
+
+          <g id="page-tasks" class="page" style="display: none">
+            <text x="233" y="94" fill="#e8eef5" font-size="24" font-weight="bold" text-anchor="middle">TASKS</text>
+            <g fill="#1b2933">
+              <rect x="52" y="126" width="362" height="34" rx="12"/><rect x="52" y="164" width="362" height="34" rx="12"/>
+              <rect x="52" y="202" width="362" height="34" rx="12"/><rect x="52" y="240" width="362" height="34" rx="12"/>
+              <rect x="52" y="278" width="362" height="34" rx="12"/><rect x="52" y="316" width="362" height="34" rx="12"/>
+            </g>
+            <g fill="#e8eef5" font-size="16">
+              <text x="70" y="148">A1</text><text x="125" y="148" fill="#3489f4">RUN</text><text x="218" y="148" fill="#b9c5d0">Build dashboard</text>
+              <text x="70" y="186">A2</text><text x="125" y="186" fill="#28c96d">DONE</text><text x="218" y="186" fill="#b9c5d0">Run tests</text>
+              <text x="70" y="224">A3</text><text x="125" y="224" fill="#f5ab41">INPUT</text><text x="218" y="224" fill="#b9c5d0">Review changes</text>
+              <text x="70" y="262">A4</text><text x="125" y="262" fill="#aab8c5">IDLE</text><text x="218" y="262" fill="#b9c5d0">Update docs</text>
+              <text x="70" y="300">A5</text><text x="125" y="300" fill="#3489f4">RUN</text><text x="218" y="300" fill="#b9c5d0">Inspect API</text>
+              <text x="70" y="338">A6</text><text x="125" y="338" fill="#f05b69">ERROR</text><text x="218" y="338" fill="#b9c5d0">Prepare release</text>
+            </g>
+          </g>
+
+          <g id="page-approval" class="page" style="display: none">
+            <path d="M233 45 A188 188 0 0 1 233 421 L233 233 Z" fill="#164238" stroke="#0d2827" stroke-width="3"/>
+            <path d="M233 421 A188 188 0 0 1 233 45 L233 233 Z" fill="#482832" stroke="#2d1a25" stroke-width="3"/>
+            <circle cx="233" cy="233" r="92" fill="#070b10" stroke="#26323d" stroke-width="3"/>
+            <text x="233" y="197" fill="#fff3d5" font-size="20" font-weight="bold" text-anchor="middle">ALLOW THE</text>
+            <text x="233" y="224" fill="#fff3d5" font-size="20" font-weight="bold" text-anchor="middle">MOCK</text>
+            <text x="233" y="251" fill="#fff3d5" font-size="20" font-weight="bold" text-anchor="middle">BUILD?</text>
+            <text x="332" y="244" fill="#f1f6fa" font-size="24" font-weight="bold" text-anchor="middle">ALLOW</text>
+            <text x="134" y="244" fill="#f1f6fa" font-size="24" font-weight="bold" text-anchor="middle">DENY</text>
+          </g>
+
+          <g id="page-agents" class="page" style="display: none">
+            <g stroke="#0b151c" stroke-width="3">
+              <path d="M233 15 A218 218 0 0 1 403.4 97.1 L292.4 185.6 A76 76 0 0 0 233 157 Z" fill="#e53935"/>
+              <path d="M403.4 97.1 A218 218 0 0 1 445.5 281.5 L307.1 249.9 A76 76 0 0 0 292.4 185.6 Z" fill="#f28c28"/>
+              <path d="M445.5 281.5 A218 218 0 0 1 327.6 429.4 L266 301.5 A76 76 0 0 0 307.1 249.9 Z" fill="#f4d03f"/>
+              <path d="M327.6 429.4 A218 218 0 0 1 138.4 429.4 L200 301.5 A76 76 0 0 0 266 301.5 Z" fill="#2ecc71"/>
+              <path d="M138.4 429.4 A218 218 0 0 1 20.5 281.5 L158.9 249.9 A76 76 0 0 0 200 301.5 Z" fill="#16c6c1"/>
+              <path d="M20.5 281.5 A218 218 0 0 1 62.6 97.1 L173.6 185.6 A76 76 0 0 0 158.9 249.9 Z" fill="#3478db"/>
+              <path d="M62.6 97.1 A218 218 0 0 1 233 15 L233 157 A76 76 0 0 0 173.6 185.6 Z" fill="#8e44ad"/>
+            </g>
+            <g fill="#ffffff" font-size="18" font-weight="bold" text-anchor="middle">
+              <text x="298" y="91">A1</text><text x="298" y="113" font-size="14">RUN</text>
+              <text x="379" y="194">A2</text><text x="379" y="216" font-size="14">DONE</text>
+              <text x="350" y="321" fill="#10151b">A3</text><text x="350" y="343" fill="#10151b" font-size="14">INPUT</text>
+              <text x="233" y="378" fill="#10151b">A4</text><text x="233" y="400" fill="#10151b" font-size="14">IDLE</text>
+              <text x="116" y="321">A5</text><text x="116" y="343" font-size="14">RUN</text>
+              <text x="87" y="194">A6</text><text x="87" y="216" font-size="14">ERROR</text>
+              <text x="168" y="91">A7</text><text x="168" y="113" font-size="14">WAIT</text>
+            </g>
+            <circle cx="233" cy="233" r="76" fill="#070b10" stroke="#26323d" stroke-width="3"/>
+            <text x="233" y="245" fill="#63dcc5" font-size="26" font-weight="bold" text-anchor="middle">ACTIVE 6</text>
+          </g>
+
+          <!-- Minimal status overlay: no label, no time, no Bluetooth. -->
+          <path d="M83 0H383V15C383 39 365 58 341 58H125C101 58 83 39 83 15Z" fill="#091016" stroke="#3a4b57" stroke-width="2"/>
+          <g transform="translate(137 28)" fill="none" stroke="#b8c7d4" stroke-width="2.2" stroke-linecap="round">
+            <path d="M-10 7Q0 -3 10 7M-6 11Q0 5 6 11"/>
+            <circle cx="0" cy="15" r="1.8" fill="#b8c7d4" stroke="none"/>
+          </g>
+          <text x="193" y="38" fill="#b8c7d4" font-size="15" text-anchor="middle">82%</text>
+          <g transform="translate(241 32)" fill="none" stroke="#b8c7d4" stroke-width="2.2" stroke-linejoin="round">
+            <rect x="-13" y="-7" width="27" height="14" rx="3"/><path d="M15 -3h4v6h-4Z" fill="#b8c7d4" stroke="none"/><rect x="-10" y="-4" width="17" height="8" rx="2" fill="#43d67f" stroke="none"/>
+          </g>
+          <g transform="translate(307 32)" fill="none" stroke="#43d67f" stroke-width="2.2" stroke-linecap="round">
+            <rect x="-13" y="-9" width="26" height="18" rx="3"/><path d="M-7 0h4m4 0h4"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <nav aria-label="Demo views">
+      <button data-view="home" aria-pressed="true">Home</button>
+      <button data-view="tasks" aria-pressed="false">Tasks</button>
+      <button data-view="approval" aria-pressed="false">Approval</button>
+      <button data-view="agents" aria-pressed="false">Agents</button>
+    </nav>
+    <p class="note">466 x 466 preview. The status capsule overlays the page and does not reserve layout space.</p>
+  </main>
+</body>
+<script>
+  const screen = document.querySelector('.screen');
+  const buttons = [...document.querySelectorAll('[data-view]')];
+  const pages = Object.fromEntries(['home', 'tasks', 'approval', 'agents'].map(name => [name, document.getElementById('page-' + name)]));
+  const requestedView = new URLSearchParams(window.location.search).get('view');
+  let active = pages[requestedView] ? requestedView : 'home';
+  let start = null;
+  pages[active].style.display = 'block';
+  buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === active)));
+
+  function showView(next, direction = 1) {
+    if (!pages[next] || next === active) return;
+    const previous = pages[active];
+    const incoming = pages[next];
+    previous.style.display = 'none';
+    incoming.style.display = 'block';
+    const vertical = Math.abs(direction) === 2;
+    const sign = direction < 0 ? -1 : 1;
+    const startTransform = vertical ? 'translateY(' + (sign * 34) + 'px)' : 'translateX(' + (sign * 34) + 'px)';
+    incoming.animate([{ opacity: 0, transform: startTransform }, { opacity: 1, transform: 'translate(0, 0)' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === next)));
+    active = next;
+  }
+
+  buttons.forEach(button => button.addEventListener('click', () => showView(button.dataset.view)));
+  screen.addEventListener('pointerdown', event => { start = { x: event.clientX, y: event.clientY }; });
+  screen.addEventListener('pointerup', event => {
+    if (!start) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    start = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) return;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      if (active === 'home' && dx > 0) showView('tasks', -1);
+      else if (active === 'home' && dx < 0) showView('approval', 1);
+      else if (active === 'tasks' && dx < 0) showView('home', 1);
+      else if (active === 'approval' && dx > 0) showView('home', -1);
+    } else if (active === 'home' && dy < 0) showView('agents', 2);
+    else if (active === 'agents' && dy > 0) showView('home', -2);
+  });
+</script>
+</html>
