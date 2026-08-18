@@ -15,6 +15,10 @@
     button[aria-pressed="true"] { border-color: #35d8e5; color: #effcff; background: #1c3d47; }
     .note { margin: 0; color: #7f929d; font-size: 13px; }
     .screen { touch-action: none; user-select: none; }
+    body.export { width: 466px; min-height: 466px; overflow: hidden; place-items: start; }
+    body.export main { padding: 0; gap: 0; }
+    body.export .screen { width: 466px; }
+    body.export nav, body.export .note { display: none; }
   </style>
 </head>
 <body>
@@ -163,6 +167,9 @@
   </main>
 </body>
 <script>
+  if (new URLSearchParams(window.location.search).get('export') === '1') {
+    document.body.classList.add('export');
+  }
   const screen = document.querySelector('.screen');
   const buttons = [...document.querySelectorAll('[data-view]')];
   const pages = Object.fromEntries(['home', 'tasks', 'approval', 'agents'].map(name => [name, document.getElementById('page-' + name)]));

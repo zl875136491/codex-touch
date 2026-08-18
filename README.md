@@ -12,6 +12,21 @@ Python relay 运行在 macOS 上，负责连接 Codex App Server、汇总 agent/
 - relay 只在 macOS 保存 Codex 登录态，开发板不保存 `auth.json` 或 Codex access token。
 - 可选 mock 模式，用于首次接线和屏幕验收。
 
+## Demo 展示
+
+下面是当前 466x466 开发板圆形屏幕的四个页面预览。图片由
+[`demo/status-bar-demo.html`](demo/status-bar-demo.html) 的导出模式生成，内容与当前固件 UI 方案保持一致。
+打开本地 demo 可以通过底部按钮或触摸滑动切换页面，也可以使用 `?view=tasks`、`?view=approval`、
+`?view=agents` 直接打开指定页面。
+
+| Home | Tasks |
+| --- | --- |
+| ![Home dashboard](docs/demo/home.png) | ![Tasks dashboard](docs/demo/tasks.png) |
+
+| Approval | Agents |
+| --- | --- |
+| ![Approval choices](docs/demo/approval.png) | ![Agents dashboard](docs/demo/agents.png) |
+
 ## 从零开始：macOS
 
 下面的流程适用于一台没有项目依赖的新 Mac。项目使用 PlatformIO 构建固件，
@@ -139,6 +154,7 @@ src/main.cpp              ESP32-S3 固件、绘制、触摸和 HTTP 轮询
 include/                  固件配置模板；实际 TouchConfig.h 不提交
 scripts/                  macOS 依赖、配置、launchd、构建和刷写脚本
 demo/status-bar-demo.html 466x466 本地 UI 预览
+docs/demo/                README 使用的四个 466x466 页面截图
 tests/                    relay 模型、HTTP、usage 单元测试
 ```
 
