@@ -176,6 +176,7 @@
   const requestedView = new URLSearchParams(window.location.search).get('view');
   let active = pages[requestedView] ? requestedView : 'home';
   let start = null;
+  Object.values(pages).forEach(page => { page.style.display = 'none'; });
   pages[active].style.display = 'block';
   buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === active)));
 
