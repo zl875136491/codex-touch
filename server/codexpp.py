@@ -609,9 +609,9 @@ def read_rollout_output(path: str, max_chars: int = 720) -> str:
             continue
         kind = str(payload.get("type") or "")
         text = ""
-        if kind == "agent_message":
+        if kind in {"agent_message", "assistant_message"}:
             text = _rollout_text(payload.get("message"))
-        elif kind == "message" and payload.get("role") == "assistant":
+        elif kind in {"message", "response"} and payload.get("role") == "assistant":
             text = _rollout_text(payload.get("content"))
         elif kind == "custom_tool_call_output":
             text = _rollout_text(payload.get("output"))

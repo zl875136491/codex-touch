@@ -181,6 +181,22 @@ def test_read_rollout_output_supports_assistant_content_and_limits_tail(tmp_path
     assert output.endswith("x" * 720)
 
 
+def test_read_rollout_output_supports_codexpp_response_item(tmp_path):
+    path = tmp_path / "rollout.jsonl"
+    path.write_text(
+        json.dumps({
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Renderer output"}],
+            },
+        }) + "\n",
+        encoding="utf-8",
+    )
+    assert read_rollout_output(str(path)) == "Renderer output"
+
+
 def test_read_rollout_output_returns_empty_for_missing_file(tmp_path):
     assert read_rollout_output(str(tmp_path / "missing.jsonl")) == ""
 

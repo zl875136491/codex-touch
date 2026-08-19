@@ -451,7 +451,6 @@ void drawAgentDetail(JsonObject doc) {
   }
   if (selected.isNull()) {
     centered("AGENT NOT FOUND", kCenterX, 226, rgb(0xF5AB41), 1.8f);
-    centered("SWIPE LEFT", kCenterX, 270, rgb(0x91A2B2), 1.45f);
     return;
   }
 
@@ -764,11 +763,12 @@ void handleTouch() {
       else if (dx < 0 && currentView == View::Home) animateTo(View::Approval, SlideFrom::Right);
       else if (dx < 0 && currentView == View::Tasks) animateTo(View::Home, SlideFrom::Right);
       else if (dx > 0 && currentView == View::Approval) animateTo(View::Home, SlideFrom::Left);
-      else if (dx < 0 && currentView == View::AgentDetail) animateTo(View::Agents, SlideFrom::Right);
     } else if (dy < 0 && currentView == View::Home) {
       animateTo(View::Agents, SlideFrom::Bottom);
     } else if (dy > 0 && currentView == View::Agents) {
       animateTo(View::Home, SlideFrom::Top);
+    } else if (dy < 0 && currentView == View::AgentDetail) {
+      animateTo(View::Agents, SlideFrom::Top);
     }
     return;
   }
@@ -813,7 +813,7 @@ void handleTouch() {
       selectedAgentId = String(agent["id"] | "");
       if (selectedAgentId.length()) {
         postAction(String("{\"type\":\"select_agent\",\"agent_id\":\"") + selectedAgentId + "\"}");
-        animateTo(View::AgentDetail, SlideFrom::Left);
+        animateTo(View::AgentDetail, SlideFrom::Bottom);
       }
     }
   }
