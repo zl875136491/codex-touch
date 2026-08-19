@@ -767,7 +767,7 @@ void handleTouch() {
       animateTo(View::Agents, SlideFrom::Bottom);
     } else if (dy > 0 && currentView == View::Agents) {
       animateTo(View::Home, SlideFrom::Top);
-    } else if (dy < 0 && currentView == View::AgentDetail) {
+    } else if (dy > 0 && currentView == View::AgentDetail) {
       animateTo(View::Agents, SlideFrom::Top);
     }
     return;

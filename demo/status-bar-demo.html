@@ -341,7 +341,7 @@
       else if (active === 'approval' && dx > 0) showView('home', -1);
     } else if (active === 'home' && dy < 0) showView('agents', 2);
     else if (active === 'agents' && dy > 0) showView('home', -2);
-    else if (active === 'agent-detail' && dy < 0) showView('agents', -2);
+    else if (active === 'agent-detail' && dy > 0) showView('agents', -2);
   });
 </script>
 </html>
