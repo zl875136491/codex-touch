@@ -53,6 +53,7 @@ def test_extract_codexpp_approval_request():
     interaction = extract_interaction_event(event)
     assert interaction == {
         "request_id": "17",
+        "rpc_request_id": 17,
         "kind": "approval",
         "method": "item/commandExecution/requestApproval",
         "prompt": "Run tests",

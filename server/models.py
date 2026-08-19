@@ -38,6 +38,9 @@ class PendingInteraction:
     method: str = ""
     page_url: str = ""
     questions: List[Dict[str, Any]] = field(default_factory=list)
+    # Protocol details stay on the relay and are not sent to the board.
+    params: Dict[str, Any] = field(default_factory=dict)
+    rpc_request_id: Any = None
 
 
 @dataclass
@@ -97,9 +100,18 @@ class RelayState:
                     "sources": [name for name, connected in self.codex_sources.items() if connected],
                 },
                 "selected_agent_id": self.selected_agent_id,
-                "agents": agents[:6],
+                # The circular Agents page has seven color sectors. Home and
+                # Tasks deliberately render their own shorter six-item views.
+                "agents": agents[:7],
                 "agent_count": len(self.agents),
-                "interactions": [asdict(item) for item in self.interactions.values()],
+                "interactions": [
+                    {
+                        key: value
+                        for key, value in asdict(item).items()
+                        if key not in {"params", "rpc_request_id"}
+                    }
+                    for item in self.interactions.values()
+                ],
                 "usage": usage,
                 "last_event": self.last_event,
                 "last_event_at": self.last_event_at,

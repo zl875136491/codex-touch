@@ -438,6 +438,7 @@ def extract_interaction_event(event: Dict[str, Any]) -> Optional[Dict[str, Any]]
         return None
     return {
         "request_id": str(request_id),
+        "rpc_request_id": request_id,
         "kind": "approval" if approval else "choice",
         "method": method,
         "prompt": str(prompt),
@@ -464,7 +465,7 @@ def send_renderer_message(target: Dict[str, Any], message: Dict[str, Any]) -> bo
         return False
 
 
-def send_interaction_response(host: str, port: int, request_id: str, result: Dict[str, Any], page_url: str = "") -> bool:
+def send_interaction_response(host: str, port: int, request_id: Any, result: Dict[str, Any], page_url: str = "") -> bool:
     """Return a real app-server response through the active Codex++ renderer."""
     message = {"type": "mcp-response", "message": {"id": request_id, "result": result}}
     targets = list_cdp_targets(host, port)

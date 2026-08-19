@@ -33,6 +33,8 @@ constexpr int kSectorInner = 76;
 constexpr uint32_t kPollMs = 1500;
 constexpr uint32_t kWifiRetryMs = 10000;
 constexpr uint32_t kTelemetryMs = 1000;
+constexpr uint32_t kPowerTouchGuardMs = 450;
+constexpr uint32_t kTransitionTouchGuardMs = 180;
 constexpr float kMinTextSize = 1.35f;
 constexpr uint32_t kBackground = 0x070B10;
 constexpr uint32_t kPanel = 0x111820;
@@ -59,10 +61,13 @@ int8_t batteryLevel = -1;
 int wifiLevel = 0;
 bool serverReachable = false;
 uint32_t serverLatencyMs = 0;
-bool stateInitialized = false;
 bool touching = false;
 int touchStartX = 0;
 int touchStartY = 0;
+uint32_t ignoreTouchUntil = 0;
+bool requireFreshTouch = false;
+
+void discardNavigationTouch(uint32_t durationMs);
 
 String apiUrl(const char* path) {
   return String("http://") + TOUCH_SERVER_HOST + ":" + String(TOUCH_SERVER_PORT) + path;
@@ -598,6 +603,9 @@ void animateTo(View next, SlideFrom incomingSide) {
   }
   currentView = next;
   drawScreen();
+  // A page transition is terminal for its originating gesture. This prevents
+  // a delayed touch event from being interpreted by the destination page.
+  discardNavigationTouch(kTransitionTouchGuardMs);
 }
 
 String normalizeStateForDisplay(const String& raw) {
@@ -623,33 +631,6 @@ String normalizeStateForDisplay(const String& raw) {
   String normalized;
   serializeJson(doc, normalized);
   return normalized;
-}
-
-bool hasNewInteraction(const String& previousState, const String& nextState) {
-  if (!stateInitialized || previousState.isEmpty()) return false;
-
-  DynamicJsonDocument previous(kJsonCapacity);
-  DynamicJsonDocument next(kJsonCapacity);
-  if (deserializeJson(previous, previousState) != DeserializationError::Ok ||
-      deserializeJson(next, nextState) != DeserializationError::Ok) {
-    return false;
-  }
-
-  JsonArray previousItems = previous["interactions"].as<JsonArray>();
-  JsonArray nextItems = next["interactions"].as<JsonArray>();
-  for (JsonObject item : nextItems) {
-    const char* requestId = item["request_id"] | "";
-    if (!requestId[0]) continue;
-    bool alreadyKnown = false;
-    for (JsonObject oldItem : previousItems) {
-      if (String(oldItem["request_id"] | "") == requestId) {
-        alreadyKnown = true;
-        break;
-      }
-    }
-    if (!alreadyKnown) return true;
-  }
-  return false;
 }
 
 bool postAction(const String& body) {
@@ -695,20 +676,12 @@ void pollState() {
   serverLatencyMs = millis() - started;
   serverReachable = code == HTTP_CODE_OK;
   bool shouldRedraw = previousReachable != serverReachable;
-  bool approvalArrived = false;
   if (code == HTTP_CODE_OK) {
     const String nextState = normalizeStateForDisplay(http.getString());
-    approvalArrived = hasNewInteraction(stateJson, nextState);
     shouldRedraw = shouldRedraw || stateJson != nextState;
     stateJson = nextState;
-    stateInitialized = true;
   }
   http.end();
-  if (approvalArrived && currentView != View::Approval) {
-    Serial.println("APPROVAL_ARRIVED: OPEN APPROVAL");
-    animateTo(View::Approval, SlideFrom::Right);
-    return;
-  }
   if (shouldRedraw) drawScreen();
 }
 
@@ -732,11 +705,6 @@ void pollTelemetry() {
   else if (statusChanged) drawStatusBarOnly();
 }
 
-bool hasPendingInteraction() {
-  DynamicJsonDocument doc(kJsonCapacity);
-  return parseState(doc) && doc["interactions"].size() > 0;
-}
-
 void goHome() {
   if (currentView == View::Tasks) animateTo(View::Home, SlideFrom::Right);
   else if (currentView == View::Approval) animateTo(View::Home, SlideFrom::Left);
@@ -744,10 +712,34 @@ void goHome() {
   else if (currentView == View::AgentDetail) animateTo(View::Home, SlideFrom::Right);
 }
 
+void discardNavigationTouch(uint32_t durationMs) {
+  touching = false;
+  touchStartX = 0;
+  touchStartY = 0;
+  const uint32_t requestedUntil = millis() + durationMs;
+  if (static_cast<int32_t>(requestedUntil - ignoreTouchUntil) > 0) {
+    ignoreTouchUntil = requestedUntil;
+  }
+  requireFreshTouch = true;
+}
+
 void handleTouch() {
   const auto touch = M5.Touch.getDetail();
   const int x = (232 - touch.x) * 2;
   const int y = (232 - touch.y) * 2;
+  if (static_cast<int32_t>(millis() - ignoreTouchUntil) < 0) {
+    touching = false;
+    return;
+  }
+  if (requireFreshTouch) {
+    touching = false;
+    if (!touch.wasPressed()) return;
+    requireFreshTouch = false;
+    touching = true;
+    touchStartX = x;
+    touchStartY = y;
+    return;
+  }
   if (touch.wasPressed()) {
     touching = true;
     touchStartX = x;
@@ -819,18 +811,27 @@ void handleTouch() {
   }
 }
 
-void updatePowerButton() {
-  if (!axpReady || millis() - lastPowerPoll < 30) return;
+bool updatePowerButton() {
+  if (!axpReady || millis() - lastPowerPoll < 30) return false;
   lastPowerPoll = millis();
-  if (axp::pekPress() == 2) {
-    Serial.println("PWR short press: HOME");
+  const uint8_t press = axp::pekPress();
+  if (press & 0x02) {
+    // Power-key input is exclusive. Do not allow a stale touchscreen release
+    // from the same event loop to activate a Home-page navigation target.
+    discardNavigationTouch(kPowerTouchGuardMs);
+    Serial.println("PWR short press: HOME (touch guarded)");
     goHome();
+    return true;
   }
+  return false;
 }
 }  // namespace
 
 void setup() {
   auto config = M5.config();
+  // Waveshare is rendered through M5StopWatch support, whose PMIC key is
+  // M5PM1. This board uses AXP2101 and is handled explicitly below.
+  config.pmic_button = false;
   M5.begin(config);
   mainCanvas.createSprite(kWidth, kWidth);
   transitionCanvas.createSprite(kWidth, kWidth);
@@ -848,8 +849,7 @@ void setup() {
 
 void loop() {
   M5.update();
-  updatePowerButton();
-  handleTouch();
+  if (!updatePowerButton()) handleTouch();
   pollTelemetry();
   const uint32_t now = millis();
   if (WiFi.status() != WL_CONNECTED && now - lastWifiAttempt >= kWifiRetryMs) {

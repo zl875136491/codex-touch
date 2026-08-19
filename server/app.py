@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 import json
 import os
 import threading
@@ -116,6 +117,8 @@ class Relay:
                             method=interaction["method"],
                             page_url=interaction["page_url"],
                             questions=interaction["questions"],
+                            params=interaction["params"],
+                            rpc_request_id=interaction.get("rpc_request_id"),
                         ))
                         if interaction["thread_id"]:
                             pending_threads[interaction["thread_id"]] = interaction["prompt"]
@@ -193,11 +196,16 @@ class Relay:
             if interaction is None:
                 raise CodexClientError("interaction not found: " + request_id)
             if interaction.source == "codex++":
-                if interaction.method == "item/permissions/requestApproval":
-                    result = {"permissions": {}}
+                if action_type in ("approve", "deny"):
+                    result = self._codexpp_approval_result(interaction, action_type)
                 elif interaction.method == "item/tool/requestUserInput" and action_type == "choose":
                     result = {"answers": self._user_input_answers(interaction, payload)}
-                if not send_interaction_response(self.cdp_host, self.cdp_port, request_id, result, interaction.page_url):
+                else:
+                    result = {"answers": payload.get("answers") or [payload.get("choice", "")]}
+                rpc_request_id = interaction.rpc_request_id
+                if rpc_request_id is None:
+                    rpc_request_id = interaction.request_id
+                if not send_interaction_response(self.cdp_host, self.cdp_port, rpc_request_id, result, interaction.page_url):
                     raise CodexClientError("Codex++ renderer did not accept interaction response")
                 self.state.remove_interaction(request_id)
                 self.state.record_event("codex++.interaction.answered")
@@ -210,6 +218,16 @@ class Relay:
             self.state.set_daily_usage(snapshot.usage, snapshot.source)
             return {"accepted": True}
         raise ValueError("unsupported action: " + action_type)
+
+    @staticmethod
+    def _codexpp_approval_result(interaction: PendingInteraction, action_type: str) -> Dict[str, Any]:
+        if interaction.method == "item/permissions/requestApproval":
+            permissions: Dict[str, Any] = {}
+            requested = interaction.params.get("permissions")
+            if action_type == "approve" and isinstance(requested, dict):
+                permissions = deepcopy(requested)
+            return {"permissions": permissions, "scope": "turn"}
+        return {"decision": "accept" if action_type == "approve" else "decline"}
 
     @staticmethod
     def _user_input_answers(interaction: PendingInteraction, payload: Dict[str, Any]) -> Dict[str, Any]:

@@ -3,6 +3,7 @@ import threading
 import urllib.request
 
 from server.app import Relay, make_server
+from server.models import PendingInteraction
 
 
 def test_http_state_requires_token_and_returns_snapshot():
@@ -36,5 +37,63 @@ def test_mock_relay_provides_board_data_and_rotates_interaction():
         assert result["mock"] is True
         next_snapshot = relay.state.snapshot()
         assert next_snapshot["interactions"][0]["kind"] == "choice"
+    finally:
+        relay.close()
+
+
+def test_codexpp_command_approval_uses_original_rpc_id(monkeypatch):
+    relay = Relay(None, 60, False)
+    captured = {}
+
+    def capture(_host, _port, request_id, result, page_url=""):
+        captured.update(request_id=request_id, result=result, page_url=page_url)
+        return True
+
+    monkeypatch.setattr("server.app.send_interaction_response", capture)
+    relay.state.add_interaction(PendingInteraction(
+        request_id="17",
+        kind="approval",
+        prompt="Run tests",
+        source="codex++",
+        method="item/commandExecution/requestApproval",
+        page_url="http://codex.test/",
+        rpc_request_id=17,
+    ))
+    try:
+        result = relay.action({"type": "approve", "request_id": "17"})
+        assert result["answered"] is True
+        assert captured == {
+            "request_id": 17,
+            "result": {"decision": "accept"},
+            "page_url": "http://codex.test/",
+        }
+        assert relay.state.snapshot()["interactions"] == []
+    finally:
+        relay.close()
+
+
+def test_codexpp_permissions_approval_grants_requested_permissions(monkeypatch):
+    relay = Relay(None, 60, False)
+    responses = []
+
+    def capture(_host, _port, request_id, result, page_url=""):
+        responses.append((request_id, result, page_url))
+        return True
+
+    monkeypatch.setattr("server.app.send_interaction_response", capture)
+    requested = {"network": {}, "fileSystem": {"read": ["/tmp"]}}
+    relay.state.add_interaction(PendingInteraction(
+        request_id="permission-1",
+        kind="approval",
+        prompt="Allow permissions",
+        source="codex++",
+        method="item/permissions/requestApproval",
+        params={"permissions": requested},
+        rpc_request_id="permission-1",
+    ))
+    try:
+        relay.action({"type": "approve", "request_id": "permission-1"})
+        assert responses == [("permission-1", {"permissions": requested, "scope": "turn"}, "")]
+        assert requested == {"network": {}, "fileSystem": {"read": ["/tmp"]}}
     finally:
         relay.close()

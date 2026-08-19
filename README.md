@@ -8,10 +8,11 @@ Codex++ 为唯一来源，面向使用中转代理的 Codex++ 工作流适配。
 ## 能力
 
 - 圆形 466x466 看板：Home、Tasks、Approval、Agents，以及按需打开的 Agent Detail。
-- 左右滑动切换任务和交互页面，上滑进入 Agents，电源键返回 Home。
-- 在 Agents 页面点击单个 agent 条目，详情页从下方进入；详情持续显示该 agent 的最新 Codex++ 输出，上滑返回 Agents。
+- 首页右滑或点击 Tasks 卡片进入 Tasks，Tasks 左滑返回首页；首页左滑或点击待处理 Approval 卡片进入 Approval，Approval 右滑返回首页。
+- 首页上滑或点击底部 agent 状态条进入 Agents，Agents 下滑返回首页；电源键从任意页面返回 Home。
+- 在 Agents 页面点击单个 agent 扇区，Agent Detail 从下方进入；详情页持续显示该 agent 的最新 Codex++ 输出，下滑返回 Agents。
 - Approval 的同意/拒绝和 choice 的 A/B/C/D 选项可以从触摸屏提交。
-- 新 approval 到达时自动进入 Approval；Tasks、Agents 和 Home 的数据更新不会自动切页。
+- 所有数据轮询、Wi-Fi 重连和新 approval 到达都不会自动切页；页面仅由明确的触摸手势、点击或电源键切换。
 - 顶部状态栏统一显示 Wi-Fi、居中的电量百分比和电池图标，状态栏变化使用局部刷新。
 - 页面使用双 Sprite 和 ease-out 滑动动画，agents 扇区数量按真实 agent 数量动态绘制。
 - relay 只在 macOS 保存 Codex 登录态，开发板不保存 `auth.json` 或 Codex access token。
@@ -24,25 +25,43 @@ Codex++ 为唯一来源，面向使用中转代理的 Codex++ 工作流适配。
 
 ## Demo 展示
 
-下面是当前 466x466 开发板圆形屏幕的页面预览。图片由
-[`demo/status-bar-demo.html`](demo/status-bar-demo.html) 的导出模式生成，内容与当前固件 UI 方案保持一致。
-打开本地 demo 可以通过底部按钮或触摸滑动切换页面；在 Agents 页面点击扇区即可进入详情，
-详情页通过上滑返回 Agents。也可以使用 `?view=tasks`、`?view=approval`、`?view=agents`
-或 `?view=agent-detail` 直接打开指定页面。
+下面是当前 466x466 开发板 UI 的页面预览。截图由
+[`demo/status-bar-demo.html`](demo/status-bar-demo.html) 导出，并与 [`src/main.cpp`](src/main.cpp)
+中的当前布局和导航保持一致。demo 可通过底部按钮或触摸滑动切换；在 Agents 页面点击扇区即可进入详情，
+详情页下滑返回 Agents。也可以用 `?view=tasks`、`?view=approval`、`?view=agents` 或
+`?view=agent-detail` 直接打开指定页面。
 
-| Home | Tasks |
-| --- | --- |
-| ![Home dashboard](docs/demo/home.png) | ![Tasks dashboard](docs/demo/tasks.png) |
+更新界面后，用下列脚本重新生成 README 截图：
 
-| Approval | Agents |
-| --- | --- |
-| ![Approval choices](docs/demo/approval.png) | ![Agents dashboard](docs/demo/agents.png) |
+```sh
+./scripts/capture_demo_screenshots.sh
+```
 
-| Agent Detail | |
-| --- | --- |
-| ![Agent detail live output](docs/demo/agent-detail.png) | |
+该脚本使用本机的 Google Chrome 或 Chromium；其他位置可通过 `CHROME_BIN` 指定浏览器可执行文件。
 
-Agent Detail 详情页会在页面停留期间持续刷新最新输出；真实 relay 从 Codex++ rollout 中读取当前 agent 的最新 assistant 输出。
+### Home
+
+![Home dashboard](docs/demo/home.png)
+
+### Tasks
+
+![Tasks dashboard](docs/demo/tasks.png)
+
+### Approval
+
+![Approval choices](docs/demo/approval.png)
+
+### Agents
+
+![Agents dashboard](docs/demo/agents.png)
+
+### Agent Detail
+
+![Agent detail live output](docs/demo/agent-detail.png)
+
+Agent Detail 停留期间会持续刷新最新输出；真实 relay 从 Codex++ rollout 中读取当前 agent 的最新 assistant 输出。
+
+[观看 Bilibili 开发板演示视频](https://b23.tv/h7US4gV)
 
 ## 从零开始：macOS
 
@@ -60,7 +79,8 @@ cd codex-touch
 ./scripts/setup_macos.sh
 ```
 
-脚本会安装或检查 Python 3.12、Node.js，并创建 `.venv`；Codex++ 的真实数据采集不要求官方 Codex CLI。
+脚本会安装或检查 Python 3.12，并创建含 PlatformIO 的 `.venv`。标准 Codex++ relay 不需要
+Node.js、官方 Codex CLI 或 `codex login`。
 
 ### 2. 启动 Codex++
 
@@ -68,6 +88,15 @@ cd codex-touch
 
 Codex++ 运行后，relay 只通过其 renderer 的 CDP 接口读取当前中转代理会话；项目默认不启动独立 Codex CLI
 app-server，也不把 CLI 作为真实数据回退源。
+
+如果需要兼容 `send` / `interrupt` 的独立 Codex CLI app-server，再显式安装它：
+
+```sh
+TOUCH_INSTALL_CODEX_CLI=1 ./scripts/setup_macos.sh
+codex login
+```
+
+并在安装 relay 前设置 `TOUCH_CLI_ACTIONS=1`。这不是标准 Codex++ 工作流的必需步骤。
 
 ### 3. 配置开发板
 
@@ -143,7 +172,7 @@ ls /dev/cu.*
 
 ## Mock 验收流程
 
-如果还没有完成 Codex 登录，或者只想先验收屏幕和触摸动作：
+如果还没有启动 Codex++，或者只想先验收屏幕和触摸动作：
 
 ```sh
 TOUCH_SERVER_TOKEN='a-long-random-token' \
@@ -160,7 +189,7 @@ Mock relay 会提供 6 个 agent、quota、approval 和 choice 交互。
 所有请求都需要 `X-Codex-Touch-Token`：
 
 - `GET /api/v1/state`：读取看板状态。
-- `POST /api/v1/actions`：提交 `send`、`interrupt`、`approve`、`deny`、`choose`、`select_agent` 或 `refresh_usage`。
+- `POST /api/v1/actions`：提交 `approve`、`deny`、`choose`、`select_agent` 或 `refresh_usage`。`send` 与 `interrupt` 仅在显式启用 `TOUCH_CLI_ACTIONS=1` 的 CLI 兼容模式下可用。
 
 ## 代码结构
 
@@ -170,7 +199,7 @@ src/main.cpp              ESP32-S3 固件、绘制、触摸和 HTTP 轮询
 include/                  固件配置模板；实际 TouchConfig.h 不提交
 scripts/                  macOS 依赖、配置、launchd、构建和刷写脚本
 demo/status-bar-demo.html 466x466 本地 UI 预览
-docs/demo/                README 使用的 466x466 页面截图
+docs/demo/                README 使用的 466x466 页面截图（由 capture_demo_screenshots.sh 更新）
 tests/                    relay 模型、HTTP、usage 单元测试
 ```
 
