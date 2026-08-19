@@ -42,6 +42,7 @@ enum class SlideFrom : uint8_t { Left, Right, Top, Bottom };
 
 M5Canvas mainCanvas(&M5.Display);
 M5Canvas transitionCanvas(&M5.Display);
+M5Canvas statusCanvas(&M5.Display);
 M5Canvas* activeCanvas = &mainCanvas;
 #define canvas (*activeCanvas)
 
@@ -51,13 +52,12 @@ uint32_t lastPoll = 0;
 uint32_t lastWifiAttempt = 0;
 uint32_t lastPowerPoll = 0;
 uint32_t lastTelemetryPoll = 0;
-uint32_t lastPulseDraw = 0;
-uint32_t lastClockDraw = 0;
 bool axpReady = false;
 int8_t batteryLevel = -1;
 int wifiLevel = 0;
 bool serverReachable = false;
 uint32_t serverLatencyMs = 0;
+bool stateInitialized = false;
 bool touching = false;
 int touchStartX = 0;
 int touchStartY = 0;
@@ -150,13 +150,6 @@ void drawBluetoothStatusIcon(int x, int y, uint16_t color) {
   canvas.drawLine(x + 8, y + 5, x, y + 13, color);
 }
 
-void drawServerStatusIcon(int x, int y, uint16_t color) {
-  canvas.drawRoundRect(x - 13, y - 9, 26, 18, 3, color);
-  canvas.drawLine(x - 7, y, x - 3, y, color);
-  canvas.drawLine(x, y, x + 4, y, color);
-  canvas.drawLine(x + 7, y, x + 9, y, color);
-}
-
 void drawBatteryStatusIcon(int x, int y, uint16_t color) {
   canvas.drawRoundRect(x, y - 8, 26, 16, 3, color);
   canvas.fillRect(x + 27, y - 4, 4, 8, color);
@@ -173,22 +166,37 @@ void drawStatusBar() {
   // This is a top overlay, shaped like a shallow watch capsule. It is
   // deliberately drawn after the page so the page keeps its full-screen
   // geometry and the capsule simply covers the upper part of it.
-  const int barLeft = 83;
+  const int barLeft = 113;
   const int barTop = -18;
-  const int barWidth = 300;
+  const int barWidth = 240;
   const int barHeight = 76;
   canvas.fillRoundRect(barLeft, barTop, barWidth, barHeight, 38, rgb(0x091016));
   canvas.drawRoundRect(barLeft, barTop, barWidth, barHeight, 38, rgb(0x3A4B57));
-  drawWifiStatusIcon(137, 20, rgb(wifiColor));
+  drawWifiStatusIcon(165, 20, rgb(wifiColor));
   centered(batteryLevel < 0 ? "--" : String(static_cast<int>(batteryLevel)) + "%",
-           193, 28, rgb(batteryColor), 1.35f);
-  drawBatteryStatusIcon(241, 28, rgb(batteryColor));
-  drawServerStatusIcon(307, 28, rgb(serverReachable ? 0x43D67F : 0xF05B69));
+           kCenterX, 28, rgb(batteryColor), 1.35f);
+  drawBatteryStatusIcon(274, 28, rgb(batteryColor));
 }
 
 void maskCircle() {
   const uint16_t outside = rgb(kBackground);
   for (int y = 0; y < kWidth; ++y) {
+    const int dy = y - kCenterY;
+    if (abs(dy) >= kUiRadius) {
+      canvas.fillRect(0, y, kWidth, 1, outside);
+      continue;
+    }
+    const int span = static_cast<int>(sqrtf(static_cast<float>(kUiRadius * kUiRadius - dy * dy)));
+    const int left = kCenterX - span;
+    const int right = kCenterX + span;
+    if (left > 0) canvas.fillRect(0, y, left, 1, outside);
+    if (right < kWidth) canvas.fillRect(right, y, kWidth - right, 1, outside);
+  }
+}
+
+void maskStatusRows() {
+  const uint16_t outside = rgb(kBackground);
+  for (int y = 0; y < 76; ++y) {
     const int dy = y - kCenterY;
     if (abs(dy) >= kUiRadius) {
       canvas.fillRect(0, y, kWidth, 1, outside);
@@ -252,7 +260,8 @@ void fillArcSegment(int start, int end, int outer, int inner, uint16_t color) {
 
 void drawSector(int index, int count, uint32_t color, int outer = kSectorOuter, int inner = kSectorInner) {
   const int size = 360 / count;
-  fillArcSegment(270 + index * size + 2, 270 + (index + 1) * size - 2, outer, inner, rgb(color));
+  const int gap = count == 1 ? 0 : 2;
+  fillArcSegment(270 + index * size + gap, 270 + (index + 1) * size - gap, outer, inner, rgb(color));
 }
 
 void sectorPoint(int index, int count, int radius, int& x, int& y) {
@@ -277,6 +286,9 @@ void drawHome(JsonObject doc) {
   JsonObject codex = doc["codex"].as<JsonObject>();
   JsonObject usage = doc["usage"].as<JsonObject>();
   const bool connected = codex["connected"] | false;
+  const bool hasDailyTokens = !usage["daily_tokens_display"].isNull() &&
+                              String(usage["daily_tokens_display"] | "").length() > 0;
+  const String dailyTokens = hasDailyTokens ? String(usage["daily_tokens_display"] | "") : String();
   const bool hasUsage = !usage["remaining_percent"].isNull();
   const int remaining = hasUsage ? static_cast<int>(usage["remaining_percent"].as<float>()) : -1;
   const int agents = doc["agent_count"] | 0;
@@ -294,12 +306,17 @@ void drawHome(JsonObject doc) {
   centered("APPROVALS", 382, 144, rgb(0xB9C5D0), 1.3f);
 
   constexpr int homeCenterY = 246;
-  arcProgressAt(homeCenterY, 96, 10, hasUsage ? remaining : 0, accent);
+  arcProgressAt(homeCenterY, 96, 10, hasDailyTokens ? 0 : (hasUsage ? remaining : 0), accent);
   canvas.fillSmoothCircle(kCenterX, homeCenterY, 79, rgb(0x1A2A35));
   centered(connected ? "CODEX LIVE" : "CODEX OFFLINE", kCenterX, 196, rgb(accent), 1.55f);
-  centered(hasUsage ? String(remaining) + "%" : "--", kCenterX, 245, rgb(0x5BE7EE), 3.55f);
-  centered("SESSION IN", kCenterX, 288, rgb(0x9FE7EC), 1.55f);
-  centered("PROGRESS", kCenterX, 310, rgb(0x9FE7EC), 1.55f);
+  if (hasDailyTokens) {
+    centered("TOKENS TODAY", kCenterX, 224, rgb(0x9FE7EC), 1.45f);
+    centered(dailyTokens, kCenterX, 266, rgb(0x5BE7EE), 3.55f);
+  } else {
+    centered(hasUsage ? String(remaining) + "%" : "--", kCenterX, 245, rgb(0x5BE7EE), 3.55f);
+    centered("SESSION IN", kCenterX, 288, rgb(0x9FE7EC), 1.55f);
+    centered("PROGRESS", kCenterX, 310, rgb(0x9FE7EC), 1.55f);
+  }
 
   canvas.fillRoundRect(38, 177, 92, 145, 14, rgb(0x22364A));
   drawTasksIcon(84, 214, rgb(0x5BE7EE));
@@ -392,8 +409,10 @@ uint16_t agentSectorTextColor(int index) {
 
 void drawAgents(JsonObject doc) {
   JsonArray list = doc["agents"].as<JsonArray>();
-  const int count = kAgentSlots;
-  const int active = doc["agent_count"] | 0;
+  // The server's agent array is the source of truth. Do not render empty
+  // placeholders: a one-agent view is one complete ring, two agents are two
+  // half-rings, and so on.
+  const int count = min(kAgentSlots, static_cast<int>(list.size()));
   for (int i = 0; i < count; ++i) {
     drawSector(i, count, agentSectorColor(i));
   }
@@ -402,22 +421,25 @@ void drawAgents(JsonObject doc) {
     int x = 0;
     int y = 0;
     sectorPoint(i, count, 151, x, y);
-    const bool hasAgent = i < static_cast<int>(list.size());
-    JsonObject agent = hasAgent ? list[i].as<JsonObject>() : JsonObject();
-    const char* label = hasAgent ? statusLabel(agent["status"] | "idle") : "WAIT";
+    JsonObject agent = list[i].as<JsonObject>();
+    const char* label = statusLabel(agent["status"] | "idle");
     const uint16_t labelColor = agentSectorTextColor(i);
     centered(String("A") + String(i + 1), x, y - 15, labelColor, 1.75f);
     centered(label, x, y + 14, labelColor, 1.45f);
   }
-  centered("ACTIVE " + String(active), kCenterX, kCenterY + 7, rgb(0x63DCC5), 2.0f);
+  centered("ACTIVE " + String(count), kCenterX, kCenterY + 7, rgb(0x63DCC5), 2.0f);
 }
 
 bool parseState(DynamicJsonDocument& doc) {
   return deserializeJson(doc, stateJson) == DeserializationError::Ok;
 }
 
-void renderView(View view, M5Canvas* target, DynamicJsonDocument& doc) {
+void renderPage(View view, M5Canvas* target, DynamicJsonDocument& doc) {
   activeCanvas = target;
+  // A page is a complete frame, never an incremental overlay. Clear the
+  // sprite before drawing so content from a previous view cannot survive a
+  // page change or an interrupted transition.
+  canvas.fillScreen(rgb(kBackground));
   drawPanel();
   if (parseState(doc)) {
     JsonObject root = doc.as<JsonObject>();
@@ -431,10 +453,41 @@ void renderView(View view, M5Canvas* target, DynamicJsonDocument& doc) {
     centered(WiFi.status() == WL_CONNECTED ? "WAITING FOR SERVER" : "CONNECTING WIFI",
              kCenterX, 230, rgb(0xF5AB41), 1.9f);
   }
-  // The status capsule is a shared overlay, never layout space reserved by
-  // a child page. Draw it last so every view has the same visual shell.
+  // Every page owns its status bar. Keeping it in the same opaque frame means
+  // a page can never expose pixels left by the previous view.
   drawStatusBar();
   maskCircle();
+}
+
+void renderView(View view, M5Canvas* target, DynamicJsonDocument& doc) {
+  renderPage(view, target, doc);
+}
+
+void drawStatusBarOn(M5Canvas* target) {
+  M5Canvas* previous = activeCanvas;
+  activeCanvas = target;
+  drawStatusBar();
+  activeCanvas = previous;
+}
+
+void drawStatusBarOnly() {
+  statusCanvas.fillScreen(rgb(kBackground));
+  drawStatusBarOn(&statusCanvas);
+  M5Canvas* previous = activeCanvas;
+  activeCanvas = &statusCanvas;
+  maskStatusRows();
+  activeCanvas = previous;
+  statusCanvas.pushSprite(0, 0, statusCanvas.color565((kBackground >> 16) & 255,
+                                                       (kBackground >> 8) & 255,
+                                                       kBackground & 255));
+}
+
+void clearDisplay() {
+  // The panel is a physical framebuffer. Clear it before every complete frame
+  // so pixels from the previous page cannot survive a page replacement.
+  M5.Display.fillScreen(M5.Display.color565((kBackground >> 16) & 255,
+                                             (kBackground >> 8) & 255,
+                                             kBackground & 255));
 }
 
 void drawScreen(const char* banner = nullptr) {
@@ -445,15 +498,23 @@ void drawScreen(const char* banner = nullptr) {
   mainCanvas.pushSprite(0, 0);
 }
 
+float easeOutCubic(float value) {
+  const float inverse = 1.0f - value;
+  return 1.0f - inverse * inverse * inverse;
+}
+
 void animateTo(View next, SlideFrom incomingSide) {
   if (next == currentView) return;
   DynamicJsonDocument doc(8192);
+  // Keep both complete pages in sprites. This is the same double-buffering
+  // model used by the official graphics examples: the display only receives
+  // finished frames, never a half-drawn page.
   renderView(currentView, &mainCanvas, doc);
   renderView(next, &transitionCanvas, doc);
-  activeCanvas = &mainCanvas;
-  constexpr int frames = 8;
+  constexpr int frames = 18;
   for (int frame = 1; frame <= frames; ++frame) {
-    const int offset = kWidth * frame / frames;
+    const float progress = easeOutCubic(static_cast<float>(frame) / frames);
+    const int offset = static_cast<int>(kWidth * progress);
     int oldX = 0;
     int oldY = 0;
     int newX = 0;
@@ -476,14 +537,66 @@ void animateTo(View next, SlideFrom incomingSide) {
         newY = kWidth - offset;
         break;
     }
-    M5.Display.fillScreen(M5.Display.color565((kBackground >> 16) & 255,
-                                                (kBackground >> 8) & 255, kBackground & 255));
+    // The two opaque sprites exactly cover the moving viewport. Keeping both
+    // in the same frame avoids the black flash caused by clearing the panel.
     mainCanvas.pushSprite(oldX, oldY);
     transitionCanvas.pushSprite(newX, newY);
-    delay(18);
+    delay(14);
   }
   currentView = next;
   drawScreen();
+}
+
+String normalizeStateForDisplay(const String& raw) {
+  DynamicJsonDocument doc(8192);
+  if (deserializeJson(doc, raw) != DeserializationError::Ok) return raw;
+  doc.remove("version");
+  doc.remove("server_time");
+  doc.remove("last_event");
+  doc.remove("last_event_at");
+  JsonObject usage = doc["usage"].as<JsonObject>();
+  if (!usage.isNull()) {
+    usage.remove("updated_at");
+    usage.remove("reset_in_seconds");
+    usage.remove("error");
+  }
+  JsonArray agents = doc["agents"].as<JsonArray>();
+  for (JsonObject agent : agents) {
+    agent.remove("updated_at");
+    agent.remove("source_updated_at");
+  }
+  JsonArray interactions = doc["interactions"].as<JsonArray>();
+  for (JsonObject interaction : interactions) interaction.remove("created_at");
+  String normalized;
+  serializeJson(doc, normalized);
+  return normalized;
+}
+
+bool hasNewInteraction(const String& previousState, const String& nextState) {
+  if (!stateInitialized || previousState.isEmpty()) return false;
+
+  DynamicJsonDocument previous(8192);
+  DynamicJsonDocument next(8192);
+  if (deserializeJson(previous, previousState) != DeserializationError::Ok ||
+      deserializeJson(next, nextState) != DeserializationError::Ok) {
+    return false;
+  }
+
+  JsonArray previousItems = previous["interactions"].as<JsonArray>();
+  JsonArray nextItems = next["interactions"].as<JsonArray>();
+  for (JsonObject item : nextItems) {
+    const char* requestId = item["request_id"] | "";
+    if (!requestId[0]) continue;
+    bool alreadyKnown = false;
+    for (JsonObject oldItem : previousItems) {
+      if (String(oldItem["request_id"] | "") == requestId) {
+        alreadyKnown = true;
+        break;
+      }
+    }
+    if (!alreadyKnown) return true;
+  }
+  return false;
 }
 
 bool postAction(const String& body) {
@@ -528,12 +641,22 @@ void pollState() {
   const bool previousReachable = serverReachable;
   serverLatencyMs = millis() - started;
   serverReachable = code == HTTP_CODE_OK;
+  bool shouldRedraw = previousReachable != serverReachable;
+  bool approvalArrived = false;
   if (code == HTTP_CODE_OK) {
-    stateJson = http.getString();
-    drawScreen();
+    const String nextState = normalizeStateForDisplay(http.getString());
+    approvalArrived = hasNewInteraction(stateJson, nextState);
+    shouldRedraw = shouldRedraw || stateJson != nextState;
+    stateJson = nextState;
+    stateInitialized = true;
   }
   http.end();
-  if (!serverReachable && previousReachable) drawScreen();
+  if (approvalArrived && currentView != View::Approval) {
+    Serial.println("APPROVAL_ARRIVED: OPEN APPROVAL");
+    animateTo(View::Approval, SlideFrom::Right);
+    return;
+  }
+  if (shouldRedraw) drawScreen();
 }
 
 int wifiPercent() {
@@ -550,7 +673,10 @@ void pollTelemetry() {
   batteryLevel = axpReady ? axp::batteryPercent() : -1;
   wifiLevel = wifiPercent();
   if (WiFi.status() != WL_CONNECTED) serverReachable = false;
-  if (batteryLevel != oldBattery || wifiLevel != oldWifi || serverReachable != oldServer) drawScreen();
+  const bool statusChanged = batteryLevel != oldBattery || wifiLevel != oldWifi;
+  const bool serverChanged = serverReachable != oldServer;
+  if (serverChanged) drawScreen();
+  else if (statusChanged) drawStatusBarOnly();
 }
 
 bool hasPendingInteraction() {
@@ -639,8 +765,10 @@ void setup() {
   M5.begin(config);
   mainCanvas.createSprite(kWidth, kWidth);
   transitionCanvas.createSprite(kWidth, kWidth);
+  statusCanvas.createSprite(kWidth, 76);
   mainCanvas.setColorDepth(16);
   transitionCanvas.setColorDepth(16);
+  statusCanvas.setColorDepth(16);
   axpReady = axp::init();
   drawScreen("CONNECTING");
   WiFi.mode(WIFI_STA);
@@ -655,14 +783,6 @@ void loop() {
   handleTouch();
   pollTelemetry();
   const uint32_t now = millis();
-  if (currentView == View::Home && now - lastPulseDraw >= 450 && hasPendingInteraction()) {
-    lastPulseDraw = now;
-    drawScreen();
-  }
-  if (now - lastClockDraw >= 1000) {
-    lastClockDraw = now;
-    drawScreen();
-  }
   if (WiFi.status() != WL_CONNECTED && now - lastWifiAttempt >= kWifiRetryMs) {
     lastWifiAttempt = now;
     WiFi.disconnect();

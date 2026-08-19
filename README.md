@@ -1,16 +1,25 @@
 # Codex Touch
 
-基于 Waveshare ESP32-S3-Touch-AMOLED-1.75C 的 Codex 看板和本地中转服务。
-Python relay 运行在 macOS 上，负责连接 Codex App Server、汇总 agent/approval/choice/usage
-状态；开发板只通过局域网 HTTP 读取脱敏状态并提交交互动作。
+基于 Waveshare ESP32-S3-Touch-AMOLED-1.75C 的 Codex++ 中转看板。
+Python relay 运行在 macOS 上，连接 Codex++ 的本地 CDP renderer，汇总 agent、approval、choice
+和用量状态；开发板通过局域网 HTTP 读取脱敏状态并提交交互动作。当前项目的真实数据链路以
+Codex++ 为唯一来源，面向使用中转代理的 Codex++ 工作流适配。
 
 ## 能力
 
 - 圆形 466x466 看板：Home、Tasks、Approval、Agents。
 - 左右滑动切换任务和交互页面，上滑进入 Agents，电源键返回 Home。
 - Approval 的同意/拒绝和 choice 的 A/B/C/D 选项可以从触摸屏提交。
+- 新 approval 到达时自动进入 Approval；Tasks、Agents 和 Home 的数据更新不会自动切页。
+- 顶部状态栏统一显示 Wi-Fi、居中的电量百分比和电池图标，状态栏变化使用局部刷新。
+- 页面使用双 Sprite 和 ease-out 滑动动画，agents 扇区数量按真实 agent 数量动态绘制。
 - relay 只在 macOS 保存 Codex 登录态，开发板不保存 `auth.json` 或 Codex access token。
 - 可选 mock 模式，用于首次接线和屏幕验收。
+
+真实数据链路以 Codex++ 为准：relay 通过 Codex++ 的本地 CDP renderer 读取
+`__codexDailyTokenUsageV1` 当日用量账本，并通过 `~/.codex/sqlite` 和 rollout 文件读取任务、模型、provider、工作目录和 token 状态。
+这条链路不依赖 OpenAI 官方 usage endpoint，也不把 Codex CLI app-server 作为默认数据源；
+`--official-usage` 仅作为显式的可选兼容通道。
 
 ## Demo 展示
 
@@ -43,15 +52,14 @@ cd codex-touch
 ./scripts/setup_macos.sh
 ```
 
-脚本会安装或检查 Python 3.12、Node.js、Codex CLI，并创建 `.venv`。
+脚本会安装或检查 Python 3.12、Node.js，并创建 `.venv`；Codex++ 的真实数据采集不要求官方 Codex CLI。
 
-### 2. 登录 Codex
+### 2. 启动 Codex++
 
-```sh
-codex login
-```
+启动 Codex++ 桌面客户端，并确认它的 CDP 调试端口为 `9229`（可用 `CODEXPP_CDP_PORT` 覆盖）。
 
-登录完成后，relay 会通过 Codex CLI 的 stdio App Server 连接当前账号。
+Codex++ 运行后，relay 只通过其 renderer 的 CDP 接口读取当前中转代理会话；项目默认不启动独立 Codex CLI
+app-server，也不把 CLI 作为真实数据回退源。
 
 ### 3. 配置开发板
 
@@ -85,7 +93,7 @@ TOUCH_SERVER_PORT='8765' \
 ./scripts/install_server_macos.sh
 ```
 
-脚本会生成 `~/Library/LaunchAgents/com.codex.touch.server.plist`，并注册为 macOS 常驻服务。
+脚本会生成 `~/Library/LaunchAgents/com.codex.touch.server.plist`，并注册为 macOS 常驻服务。默认不启动独立 CLI app-server。
 它会在登录时自动启动，参数中不包含 `--mock`。服务日志位于：
 
 ```text
@@ -100,7 +108,7 @@ curl -H "X-Codex-Touch-Token: a-long-random-token" \
   http://127.0.0.1:8765/api/v1/state
 ```
 
-返回的 `codex.connected` 为 `true` 表示 relay 已连接 Codex App Server。
+返回的 `codex.connected` 和 `codex.live_connected` 均为 `true`，且 `usage.source` 包含 `cdp:codex++`，表示 relay 已连接 Codex++ 真实数据链路。
 
 ### 5. 构建并刷写固件
 
@@ -149,7 +157,7 @@ Mock relay 会提供 6 个 agent、quota、approval 和 choice 交互。
 ## 代码结构
 
 ```text
-server/                   Python relay 和 Codex stdio JSON-RPC 客户端
+server/                   Python relay 和 Codex++ CDP 数据采集器
 src/main.cpp              ESP32-S3 固件、绘制、触摸和 HTTP 轮询
 include/                  固件配置模板；实际 TouchConfig.h 不提交
 scripts/                  macOS 依赖、配置、launchd、构建和刷写脚本
@@ -171,7 +179,7 @@ GitHub Actions 会运行 Python 测试和 PlatformIO 固件构建。
 
 - macOS 防火墙需要允许 Python relay 接收局域网 TCP `8765`。
 - 开发板和 Mac 必须在同一个可互通的局域网；访客网络通常会隔离设备。
-- 如果 Codex CLI 登录态失效，重新运行 `codex login`，然后重启 relay 服务。
-- usage 接口依赖当前 Codex 登录态和上游 usage API；即使 usage 暂时不可用，App Server 状态连接仍可工作。
+- 如果 Codex++ renderer 没有启动或 CDP 端口不是默认的 `9229`，设置 `CODEXPP_CDP_PORT` 后重启 relay。
+- 当日 token 由 Codex++ renderer 本地账本汇总，主页通过 `usage.daily_tokens_display` 显示，例如 `249M`、`1.2G`；没有 renderer 时，服务不会伪造真实用量。
 - Windows 可使用 PlatformIO Core 或 VS Code PlatformIO 扩展构建，刷写端口改为 `COMx`；
   本仓库的常驻 relay 安装脚本针对 macOS。

@@ -9,6 +9,7 @@ TOKEN="${TOUCH_SERVER_TOKEN:-}"
 HOST="${TOUCH_SERVER_HOST:-0.0.0.0}"
 PORT="${TOUCH_SERVER_PORT:-8765}"
 CODEX="${CODEX_BIN:-$(command -v codex || true)}"
+CLI_ACTIONS="${TOUCH_CLI_ACTIONS:-0}"
 MOCK=0
 if [[ "${1:-}" == "--mock" ]]; then MOCK=1; shift; fi
 if [[ $# -gt 0 ]]; then echo "Usage: $0 [--mock]" >&2; exit 2; fi
@@ -19,22 +20,24 @@ if [[ ! -x "$PYTHON" ]]; then
 fi
 if [[ -z "$TOKEN" ]]; then read -r -p "Relay token (blank = generate): " TOKEN; fi
 TOKEN="${TOKEN:-$(openssl rand -hex 24)}"
-if [[ "$MOCK" == 0 && -z "$CODEX" ]]; then
-  echo "Codex CLI not found. Install it and run codex login first." >&2
+if [[ "$MOCK" == 0 && "$CLI_ACTIONS" == 1 && -z "$CODEX" ]]; then
+  echo "TOUCH_CLI_ACTIONS=1 requires the Codex CLI, but it was not found." >&2
   exit 1
 fi
 
 mkdir -p "$(dirname "$PLIST")"
-"$PYTHON" - "$PLIST" "$ROOT_DIR" "$PYTHON" "$CODEX" "$HOST" "$PORT" "$TOKEN" "$LABEL" "$MOCK" <<'PY'
+"$PYTHON" - "$PLIST" "$ROOT_DIR" "$PYTHON" "$CODEX" "$HOST" "$PORT" "$TOKEN" "$LABEL" "$MOCK" "$CLI_ACTIONS" <<'PY'
 from pathlib import Path
 import plistlib, sys
 
-path, root, python, codex, host, port, token, label, mock = sys.argv[1:]
+path, root, python, codex, host, port, token, label, mock, cli_actions = sys.argv[1:]
 arguments = [python, '-m', 'server', '--host', host, '--port', port, '--token', token, '--verbose']
 if codex:
     arguments.extend(['--codex-path', codex])
 if mock == '1':
     arguments.append('--mock')
+if cli_actions == '1':
+    arguments.append('--cli-actions')
 environment = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin'}
 if codex:
     environment['PATH'] = str(Path(codex).parent) + ':' + environment['PATH']

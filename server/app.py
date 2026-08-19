@@ -12,16 +12,26 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 from .codex_client import CodexClient, CodexClientError
-from .models import PendingInteraction, RelayState
+from .codexpp import collect_snapshot, extract_activity_event, extract_interaction_event, send_interaction_response
+from .models import AgentState, PendingInteraction, RelayState
 from .usage import read_usage
 
 
 class Relay:
-    def __init__(self, codex_path: Optional[str], usage_interval: int, verbose: bool, mock: bool = False) -> None:
+    def __init__(self, codex_path: Optional[str], usage_interval: int, verbose: bool, mock: bool = False,
+                 cdp_host: str = "127.0.0.1", cdp_port: int = 9229,
+                 sqlite_path: Optional[str] = None, official_usage: bool = False,
+                 cli_actions: bool = False) -> None:
         self.state = RelayState()
         self.mock = mock
         self.codex = CodexClient(self.state, codex_path, verbose)
         self.usage_interval = max(30, usage_interval)
+        self.cdp_host = cdp_host
+        self.cdp_port = cdp_port
+        self.sqlite_path = sqlite_path
+        self.official_usage = official_usage
+        self.cli_actions = cli_actions
+        self.live_interval = 2
         self.verbose = verbose
         self.stop_event = threading.Event()
         self.mock_step = 0
@@ -31,13 +41,16 @@ class Relay:
             self._seed_mock_state()
             threading.Thread(target=self._mock_loop, name="mock-state", daemon=True).start()
             return
-        try:
-            self.codex.start()
-        except Exception as exc:
-            self.state.set_connection(False, str(exc))
-            if self.verbose:
-                print("Codex unavailable: " + str(exc))
-        threading.Thread(target=self._usage_loop, name="usage-poller", daemon=True).start()
+        if self.cli_actions:
+            try:
+                self.codex.start()
+            except Exception as exc:
+                self.state.set_connection(False, str(exc))
+                if self.verbose:
+                    print("Codex CLI action channel unavailable: " + str(exc))
+        if self.official_usage:
+            threading.Thread(target=self._usage_loop, name="usage-poller", daemon=True).start()
+        threading.Thread(target=self._live_codex_loop, name="codexpp-poller", daemon=True).start()
 
     def _seed_mock_state(self) -> None:
         """Populate a stable, readable board view without starting Codex."""
@@ -78,15 +91,77 @@ class Relay:
                 self.state.set_usage_error(str(exc))
             self.stop_event.wait(self.usage_interval)
 
+    def _live_codex_loop(self) -> None:
+        while not self.stop_event.is_set():
+            try:
+                snapshot = collect_snapshot(self.cdp_host, self.cdp_port, self.sqlite_path)
+                self.state.set_source_connection("codex++", snapshot.connected, snapshot.error)
+                activities = []
+                pending_threads = {}
+                for event in snapshot.events:
+                    activity = extract_activity_event(event)
+                    if activity:
+                        activities.append(activity)
+                    interaction = extract_interaction_event(event)
+                    if interaction and interaction.get("request_id"):
+                        self.state.add_interaction(PendingInteraction(
+                            request_id=interaction["request_id"],
+                            kind=interaction["kind"],
+                            prompt=interaction["prompt"],
+                            options=interaction["options"],
+                            thread_id=interaction["thread_id"],
+                            turn_id=interaction["turn_id"],
+                            created_at=float(event.get("at", time.time() * 1000)) / 1000.0,
+                            source="codex++",
+                            method=interaction["method"],
+                            page_url=interaction["page_url"],
+                            questions=interaction["questions"],
+                        ))
+                        if interaction["thread_id"]:
+                            pending_threads[interaction["thread_id"]] = interaction["prompt"]
+                if snapshot.usage is not None:
+                    self.state.set_daily_usage(snapshot.usage, snapshot.source)
+                live_agents = []
+                for thread in snapshot.threads:
+                    live_agents.append(AgentState(
+                        id=thread.id,
+                        title=thread.title,
+                        status=thread.status,
+                        detail=thread.model or thread.cwd,
+                        thread_id=thread.id,
+                        updated_at=thread.updated_at,
+                        source_updated_at=thread.updated_at,
+                        model_provider=thread.model_provider,
+                        model=thread.model,
+                        cwd=thread.cwd,
+                        tokens_used=thread.tokens_used,
+                        source_status=thread.source_status,
+                        source="codex++",
+                    ))
+                self.state.replace_source_agents("codex++", live_agents)
+                for activity in activities:
+                    self.state.upsert_agent(activity["thread_id"], status=activity["status"], detail=activity["detail"], thread_id=activity["thread_id"], source="codex++")
+                for thread_id, prompt in pending_threads.items():
+                    self.state.upsert_agent(thread_id, status="needs_input", detail=prompt, thread_id=thread_id, source="codex++")
+                if snapshot.threads or snapshot.usage is not None:
+                    self.state.record_event("codex++.state.updated")
+            except Exception as exc:
+                self.state.set_source_connection("codex++", False, str(exc))
+            self.stop_event.wait(self.live_interval)
+
     def action(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         action_type = str(payload.get("type", ""))
         if action_type == "send":
+            if not self.cli_actions:
+                raise CodexClientError("Codex++ send relay is not implemented; use the Codex++ renderer")
             text = str(payload.get("text", "")).strip()
             if not text or len(text) > 4000:
                 raise ValueError("text must contain 1-4000 characters")
             self.codex.send_text(text)
             return {"accepted": True}
         if action_type == "interrupt":
+            if not self.cli_actions:
+                raise CodexClientError("Codex++ interrupt relay is not implemented; use the Codex++ renderer")
             self.codex.interrupt()
             return {"accepted": True}
         if action_type == "select_agent":
@@ -113,12 +188,51 @@ class Relay:
                 result = {"decision": "decline"}
             else:
                 result = {"answers": payload.get("answers") or [payload.get("choice", "")]}
+            interaction = self.state.get_interaction(request_id)
+            if interaction is None:
+                raise CodexClientError("interaction not found: " + request_id)
+            if interaction.source == "codex++":
+                if interaction.method == "item/permissions/requestApproval":
+                    result = {"permissions": {}}
+                elif interaction.method == "item/tool/requestUserInput" and action_type == "choose":
+                    result = {"answers": self._user_input_answers(interaction, payload)}
+                if not send_interaction_response(self.cdp_host, self.cdp_port, request_id, result, interaction.page_url):
+                    raise CodexClientError("Codex++ renderer did not accept interaction response")
+                self.state.remove_interaction(request_id)
+                self.state.record_event("codex++.interaction.answered")
+                return {"request_id": request_id, "answered": True, "source": "codex++"}
             return self.codex.answer_interaction(request_id, result)
         if action_type == "refresh_usage":
-            remaining, reset = read_usage()
-            self.state.set_usage(remaining, reset)
+            snapshot = collect_snapshot(self.cdp_host, self.cdp_port, self.sqlite_path)
+            if snapshot.usage is None:
+                raise CodexClientError(snapshot.error or "Codex++ daily usage unavailable")
+            self.state.set_daily_usage(snapshot.usage, snapshot.source)
             return {"accepted": True}
         raise ValueError("unsupported action: " + action_type)
+
+    @staticmethod
+    def _user_input_answers(interaction: PendingInteraction, payload: Dict[str, Any]) -> Dict[str, Any]:
+        supplied = payload.get("answers")
+        if isinstance(supplied, dict):
+            return supplied
+        choice = payload.get("choice")
+        if choice is None and isinstance(supplied, list) and supplied:
+            choice = supplied[0]
+        try:
+            choice_index = int(choice)
+        except (TypeError, ValueError):
+            choice_index = -1
+        if not interaction.questions:
+            return {"choice": {"answers": [str(choice if choice is not None else "")]}}
+        answers: Dict[str, Any] = {}
+        for index, question in enumerate(interaction.questions):
+            question_id = str(question.get("id") or question.get("questionId") or "question-%d" % index)
+            options = question.get("options") or question.get("choices") or []
+            selected = options[choice_index] if 0 <= choice_index < len(options) else choice
+            if isinstance(selected, dict):
+                selected = selected.get("label") or selected.get("value") or selected.get("id") or ""
+            answers[question_id] = {"answers": [str(selected if selected is not None else "")]}
+        return answers
 
     def close(self) -> None:
         self.stop_event.set()
@@ -187,12 +301,18 @@ def main() -> None:
     parser.add_argument("--token", default=os.environ.get("TOUCH_SERVER_TOKEN", ""))
     parser.add_argument("--codex-path", default=os.environ.get("CODEX_BIN"))
     parser.add_argument("--usage-interval", type=int, default=60)
+    parser.add_argument("--cdp-host", default=os.environ.get("CODEXPP_CDP_HOST", "127.0.0.1"))
+    parser.add_argument("--cdp-port", type=int, default=int(os.environ.get("CODEXPP_CDP_PORT", "9229")))
+    parser.add_argument("--sqlite-path", default=os.environ.get("CODEX_SQLITE_PATH"))
+    parser.add_argument("--official-usage", action="store_true", default=os.environ.get("TOUCH_OFFICIAL_USAGE", "").lower() in ("1", "true", "yes"), help="also poll the official usage endpoint")
+    parser.add_argument("--cli-actions", action="store_true", default=os.environ.get("TOUCH_CLI_ACTIONS", "").lower() in ("1", "true", "yes"), help="also start a separate Codex CLI app-server for send/interrupt compatibility")
     parser.add_argument("--mock", action="store_true", default=os.environ.get("TOUCH_SERVER_MOCK", "").lower() in ("1", "true", "yes"), help="serve deterministic board data without Codex")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
     if args.host not in ("127.0.0.1", "localhost", "::1") and not args.token:
         parser.error("--token or TOUCH_SERVER_TOKEN is required when exposing the server to LAN")
-    relay = Relay(args.codex_path, args.usage_interval, args.verbose, args.mock)
+    relay = Relay(args.codex_path, args.usage_interval, args.verbose, args.mock,
+                  args.cdp_host, args.cdp_port, args.sqlite_path, args.official_usage, args.cli_actions)
     relay.start()
     server = make_server(relay, args.host, args.port, args.token)
     print("Codex Touch server listening on http://%s:%d" % (args.host, args.port))

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Codex Touch Minimal Status Bar Demo</title>
+  <title>Codex Touch Codex++ Dashboard Demo</title>
   <style>
     :root { color-scheme: dark; font-family: Arial, sans-serif; }
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #05080b; color: #d9e2e8; }
@@ -15,6 +15,10 @@
     button[aria-pressed="true"] { border-color: #35d8e5; color: #effcff; background: #1c3d47; }
     .note { margin: 0; color: #7f929d; font-size: 13px; }
     .screen { touch-action: none; user-select: none; }
+    /* SVG groups need explicit visibility as well as display. Only one page
+       group is ever painted; the status capsule stays outside this layer. */
+    .page { display: none !important; visibility: hidden !important; opacity: 0 !important; }
+    .page.is-active { display: inline !important; visibility: visible !important; opacity: 1 !important; }
     body.export { width: 466px; min-height: 466px; overflow: hidden; place-items: start; }
     body.export main { padding: 0; gap: 0; }
     body.export .screen { width: 466px; }
@@ -26,7 +30,7 @@
     <div class="screen" aria-label="466 by 466 circular display preview">
       <svg viewBox="0 0 466 466" role="img" aria-labelledby="title desc">
         <title id="title">Minimal circular status bar</title>
-        <desc id="desc">A compact top overlay with Wi-Fi, battery percent, battery and server icons.</desc>
+        <desc id="desc">A compact top overlay with Wi-Fi, centered battery percent and battery icons.</desc>
         <defs>
           <clipPath id="round-screen"><circle cx="233" cy="233" r="225"/></clipPath>
           <linearGradient id="quota" x1="0" y1="1" x2="1" y2="0">
@@ -39,8 +43,9 @@
         <circle cx="233" cy="233" r="233" fill="#05080b"/>
         <g clip-path="url(#round-screen)">
           <rect width="466" height="466" fill="#111820"/>
+          <g id="page-layer" clip-path="url(#round-screen)">
 
-          <g id="page-home" class="page" style="display: block">
+          <g id="page-home" class="page" style="display: none; visibility: hidden">
           <g id="page-content" transform="translate(0 -28)">
           <text x="233" y="126" fill="#d4dee7" font-size="16" text-anchor="middle" letter-spacing="1">ACTIVE CODEX SESSION</text>
           <line x1="134" y1="139" x2="134" y2="382" stroke="#41515f"/>
@@ -90,7 +95,7 @@
           </g>
 
 
-          <g id="page-tasks" class="page" style="display: none">
+          <g id="page-tasks" class="page" style="display: none; visibility: hidden">
             <text x="233" y="94" fill="#e8eef5" font-size="24" font-weight="bold" text-anchor="middle">TASKS</text>
             <g fill="#1b2933">
               <rect x="52" y="126" width="362" height="34" rx="12"/><rect x="52" y="164" width="362" height="34" rx="12"/>
@@ -107,7 +112,7 @@
             </g>
           </g>
 
-          <g id="page-approval" class="page" style="display: none">
+          <g id="page-approval" class="page" style="display: none; visibility: hidden">
             <path d="M233 45 A188 188 0 0 1 233 421 L233 233 Z" fill="#164238" stroke="#0d2827" stroke-width="3"/>
             <path d="M233 421 A188 188 0 0 1 233 45 L233 233 Z" fill="#482832" stroke="#2d1a25" stroke-width="3"/>
             <circle cx="233" cy="233" r="92" fill="#070b10" stroke="#26323d" stroke-width="3"/>
@@ -118,7 +123,7 @@
             <text x="134" y="244" fill="#f1f6fa" font-size="24" font-weight="bold" text-anchor="middle">DENY</text>
           </g>
 
-          <g id="page-agents" class="page" style="display: none">
+          <g id="page-agents" class="page" style="display: none; visibility: hidden">
             <g stroke="#0b151c" stroke-width="3">
               <path d="M233 15 A218 218 0 0 1 403.4 97.1 L292.4 185.6 A76 76 0 0 0 233 157 Z" fill="#e53935"/>
               <path d="M403.4 97.1 A218 218 0 0 1 445.5 281.5 L307.1 249.9 A76 76 0 0 0 292.4 185.6 Z" fill="#f28c28"/>
@@ -140,19 +145,17 @@
             <circle cx="233" cy="233" r="76" fill="#070b10" stroke="#26323d" stroke-width="3"/>
             <text x="233" y="245" fill="#63dcc5" font-size="26" font-weight="bold" text-anchor="middle">ACTIVE 6</text>
           </g>
+          </g>
 
-          <!-- Minimal status overlay: no label, no time, no Bluetooth. -->
-          <path d="M83 0H383V15C383 39 365 58 341 58H125C101 58 83 39 83 15Z" fill="#091016" stroke="#3a4b57" stroke-width="2"/>
-          <g transform="translate(137 28)" fill="none" stroke="#b8c7d4" stroke-width="2.2" stroke-linecap="round">
+          <!-- Minimal status overlay: Wi-Fi, centered battery percent, battery. -->
+          <path d="M113 0H353V15C353 39 335 58 311 58H155C131 58 113 39 113 15Z" fill="#091016" stroke="#3a4b57" stroke-width="2"/>
+          <g transform="translate(165 28)" fill="none" stroke="#b8c7d4" stroke-width="2.2" stroke-linecap="round">
             <path d="M-10 7Q0 -3 10 7M-6 11Q0 5 6 11"/>
             <circle cx="0" cy="15" r="1.8" fill="#b8c7d4" stroke="none"/>
           </g>
-          <text x="193" y="38" fill="#b8c7d4" font-size="15" text-anchor="middle">82%</text>
-          <g transform="translate(241 32)" fill="none" stroke="#b8c7d4" stroke-width="2.2" stroke-linejoin="round">
+          <text x="233" y="38" fill="#b8c7d4" font-size="15" text-anchor="middle">82%</text>
+          <g transform="translate(274 32)" fill="none" stroke="#b8c7d4" stroke-width="2.2" stroke-linejoin="round">
             <rect x="-13" y="-7" width="27" height="14" rx="3"/><path d="M15 -3h4v6h-4Z" fill="#b8c7d4" stroke="none"/><rect x="-10" y="-4" width="17" height="8" rx="2" fill="#43d67f" stroke="none"/>
-          </g>
-          <g transform="translate(307 32)" fill="none" stroke="#43d67f" stroke-width="2.2" stroke-linecap="round">
-            <rect x="-13" y="-9" width="26" height="18" rx="3"/><path d="M-7 0h4m4 0h4"/>
           </g>
         </g>
       </svg>
@@ -176,20 +179,49 @@
   const requestedView = new URLSearchParams(window.location.search).get('view');
   let active = pages[requestedView] ? requestedView : 'home';
   let start = null;
-  Object.values(pages).forEach(page => { page.style.display = 'none'; });
-  pages[active].style.display = 'block';
+  function hidePage(page) {
+    if (typeof page.getAnimations === 'function') {
+      page.getAnimations().forEach(animation => animation.cancel());
+    }
+    page.classList.remove('is-active');
+    page.style.setProperty('display', 'none', 'important');
+    page.style.setProperty('visibility', 'hidden', 'important');
+    page.style.setProperty('opacity', '0', 'important');
+    page.setAttribute('display', 'none');
+    page.setAttribute('visibility', 'hidden');
+    page.setAttribute('opacity', '0');
+    page.style.transform = '';
+  }
+
+  function showPage(page) {
+    page.classList.add('is-active');
+    page.style.setProperty('display', 'inline', 'important');
+    page.style.setProperty('visibility', 'visible', 'important');
+    page.style.setProperty('opacity', '1', 'important');
+    page.setAttribute('display', 'inline');
+    page.setAttribute('visibility', 'visible');
+    page.setAttribute('opacity', '1');
+  }
+
+  Object.values(pages).forEach(hidePage);
+  showPage(pages[active]);
   buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === active)));
 
   function showView(next, direction = 1) {
     if (!pages[next] || next === active) return;
-    const previous = pages[active];
     const incoming = pages[next];
-    previous.style.display = 'none';
-    incoming.style.display = 'block';
-    const vertical = Math.abs(direction) === 2;
-    const sign = direction < 0 ? -1 : 1;
-    const startTransform = vertical ? 'translateY(' + (sign * 34) + 'px)' : 'translateX(' + (sign * 34) + 'px)';
-    incoming.animate([{ opacity: 0, transform: startTransform }, { opacity: 1, transform: 'translate(0, 0)' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    Object.values(pages).forEach(hidePage);
+    showPage(incoming);
+    if (!new URLSearchParams(window.location.search).has('export')) {
+      const vertical = Math.abs(direction) === 2;
+      const sign = direction < 0 ? -1 : 1;
+      const startTransform = vertical ? 'translateY(' + (sign * 34) + 'px)' : 'translateX(' + (sign * 34) + 'px)';
+      incoming.animate([{ opacity: 0, transform: startTransform }, { opacity: 1, transform: 'translate(0, 0)' }], {
+        duration: 220,
+        easing: 'cubic-bezier(.2,.8,.2,1)',
+        fill: 'both'
+      });
+    }
     buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === next)));
     active = next;
   }

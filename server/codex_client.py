@@ -134,7 +134,7 @@ class CodexClient:
             options = [str(item.get("label") if isinstance(item, dict) else item) for item in options]
         else:
             options = []
-        self.state.add_interaction(PendingInteraction(request_id=request_id, kind="approval" if "approval" in method.lower() else "choice", prompt=str(params.get("reason") or params.get("prompt") or params.get("question") or method), options=options[:8], thread_id=str(params.get("threadId") or ""), turn_id=str(params.get("turnId") or ""), created_at=time.time()))
+        self.state.add_interaction(PendingInteraction(request_id=request_id, kind="approval" if "approval" in method.lower() else "choice", prompt=str(params.get("reason") or params.get("prompt") or params.get("question") or method), options=options[:8], thread_id=str(params.get("threadId") or ""), turn_id=str(params.get("turnId") or ""), created_at=time.time(), source="cli", method=method))
         if params.get("threadId"):
             self.state.upsert_agent(str(params["threadId"]), status="needs_input", detail=str(params.get("reason") or params.get("prompt") or ""))
 
