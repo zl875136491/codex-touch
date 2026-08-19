@@ -7,8 +7,9 @@ Codex++ 为唯一来源，面向使用中转代理的 Codex++ 工作流适配。
 
 ## 能力
 
-- 圆形 466x466 看板：Home、Tasks、Approval、Agents。
+- 圆形 466x466 看板：Home、Tasks、Approval、Agents，以及按需打开的 Agent Detail。
 - 左右滑动切换任务和交互页面，上滑进入 Agents，电源键返回 Home。
+- 点击 Agents 的任意扇区从左侧打开详情；详情持续显示该 agent 的最新 Codex++ 输出，左滑返回 Agents。
 - Approval 的同意/拒绝和 choice 的 A/B/C/D 选项可以从触摸屏提交。
 - 新 approval 到达时自动进入 Approval；Tasks、Agents 和 Home 的数据更新不会自动切页。
 - 顶部状态栏统一显示 Wi-Fi、居中的电量百分比和电池图标，状态栏变化使用局部刷新。
@@ -25,8 +26,8 @@ Codex++ 为唯一来源，面向使用中转代理的 Codex++ 工作流适配。
 
 下面是当前 466x466 开发板圆形屏幕的四个页面预览。图片由
 [`demo/status-bar-demo.html`](demo/status-bar-demo.html) 的导出模式生成，内容与当前固件 UI 方案保持一致。
-打开本地 demo 可以通过底部按钮或触摸滑动切换页面，也可以使用 `?view=tasks`、`?view=approval`、
-`?view=agents` 直接打开指定页面。
+打开本地 demo 可以通过底部按钮或触摸滑动切换页面；在 Agents 页面点击扇区即可进入详情，
+也可以使用 `?view=tasks`、`?view=approval`、`?view=agents` 或 `?view=agent-detail` 直接打开指定页面。
 
 | Home | Tasks |
 | --- | --- |
@@ -35,6 +36,8 @@ Codex++ 为唯一来源，面向使用中转代理的 Codex++ 工作流适配。
 | Approval | Agents |
 | --- | --- |
 | ![Approval choices](docs/demo/approval.png) | ![Agents dashboard](docs/demo/agents.png) |
+
+Agent Detail 详情页会在页面停留期间持续刷新最新输出，当前 demo 可通过 Agents 扇区点击进入预览。
 
 ## 从零开始：macOS
 

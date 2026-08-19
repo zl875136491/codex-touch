@@ -12,6 +12,7 @@ class AgentState:
     title: str = "Codex agent"
     status: str = "idle"
     detail: str = ""
+    output: str = ""
     thread_id: str = ""
     turn_id: str = ""
     updated_at: float = 0.0

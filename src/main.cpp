@@ -36,8 +36,9 @@ constexpr uint32_t kTelemetryMs = 1000;
 constexpr float kMinTextSize = 1.35f;
 constexpr uint32_t kBackground = 0x070B10;
 constexpr uint32_t kPanel = 0x111820;
+constexpr size_t kJsonCapacity = 16384;
 
-enum class View : uint8_t { Home, Tasks, Approval, Agents };
+enum class View : uint8_t { Home, Tasks, Approval, Agents, AgentDetail };
 enum class SlideFrom : uint8_t { Left, Right, Top, Bottom };
 
 M5Canvas mainCanvas(&M5.Display);
@@ -48,6 +49,7 @@ M5Canvas* activeCanvas = &mainCanvas;
 
 String stateJson;
 View currentView = View::Home;
+String selectedAgentId;
 uint32_t lastPoll = 0;
 uint32_t lastWifiAttempt = 0;
 uint32_t lastPowerPoll = 0;
@@ -111,6 +113,11 @@ String shortText(const char* value, size_t maxLength = 26) {
   String result = value ? String(value) : String();
   if (result.length() > maxLength) result = result.substring(0, maxLength - 1) + "...";
   return result;
+}
+
+String tailText(const String& value, size_t maxLength = 300) {
+  if (value.length() <= maxLength) return value;
+  return String("...") + value.substring(value.length() - maxLength + 3);
 }
 
 uint32_t statusColor(const char* status) {
@@ -430,6 +437,52 @@ void drawAgents(JsonObject doc) {
   centered("ACTIVE " + String(count), kCenterX, kCenterY + 7, rgb(0x63DCC5), 2.0f);
 }
 
+void drawAgentDetail(JsonObject doc) {
+  JsonArray list = doc["agents"].as<JsonArray>();
+  JsonObject selected;
+  int selectedIndex = -1;
+  for (int i = 0; i < static_cast<int>(list.size()); ++i) {
+    JsonObject candidate = list[i].as<JsonObject>();
+    if (String(candidate["id"] | "") == selectedAgentId) {
+      selected = candidate;
+      selectedIndex = i;
+      break;
+    }
+  }
+  if (selected.isNull()) {
+    centered("AGENT NOT FOUND", kCenterX, 226, rgb(0xF5AB41), 1.8f);
+    centered("SWIPE LEFT", kCenterX, 270, rgb(0x91A2B2), 1.45f);
+    return;
+  }
+
+  const char* status = selected["status"] | "idle";
+  const uint32_t accent = agentSectorColor(selectedIndex < 0 ? 0 : selectedIndex);
+  const String title = String(selected["title"] | "Codex agent");
+  const String output = tailText(String(selected["output"] | ""));
+  const String model = String(selected["model"] | "");
+  const String cwd = String(selected["cwd"] | "");
+
+  centeredWrapped(title, kCenterX, 86, 25, rgb(0xF1F6FA), 1.75f, 25, 2);
+  canvas.fillRoundRect(166, 119, 134, 28, 12, rgb(accent));
+  centered(statusLabel(status), kCenterX, 133, agentSectorTextColor(selectedIndex < 0 ? 0 : selectedIndex), 1.25f);
+
+  String metadata;
+  if (model.length()) metadata = model;
+  if (cwd.length()) {
+    if (metadata.length()) metadata += "  |  ";
+    metadata += shortText(cwd.c_str(), 28);
+  }
+  if (metadata.length()) centeredWrapped(metadata, kCenterX, 162, 29, rgb(0x9FB1BE), 1.25f, 19, 2);
+
+  canvas.drawLine(82, 194, 384, 194, rgb(0x354752));
+  centered("LATEST OUTPUT", kCenterX, 214, rgb(0x63DCC5), 1.35f);
+  if (output.length()) {
+    centeredWrapped(output, kCenterX, 247, 27, rgb(0xE6EEF3), 1.45f, 24, 7);
+  } else {
+    centered("WAITING FOR OUTPUT", kCenterX, 270, rgb(0x91A2B2), 1.55f);
+  }
+}
+
 bool parseState(DynamicJsonDocument& doc) {
   return deserializeJson(doc, stateJson) == DeserializationError::Ok;
 }
@@ -448,6 +501,7 @@ void renderPage(View view, M5Canvas* target, DynamicJsonDocument& doc) {
       case View::Tasks: drawTasks(root); break;
       case View::Approval: drawApproval(root); break;
       case View::Agents: drawAgents(root); break;
+      case View::AgentDetail: drawAgentDetail(root); break;
     }
   } else {
     centered(WiFi.status() == WL_CONNECTED ? "WAITING FOR SERVER" : "CONNECTING WIFI",
@@ -492,7 +546,7 @@ void clearDisplay() {
 
 void drawScreen(const char* banner = nullptr) {
   (void)banner;
-  DynamicJsonDocument doc(8192);
+  DynamicJsonDocument doc(kJsonCapacity);
   renderView(currentView, &mainCanvas, doc);
   activeCanvas = &mainCanvas;
   mainCanvas.pushSprite(0, 0);
@@ -505,7 +559,7 @@ float easeOutCubic(float value) {
 
 void animateTo(View next, SlideFrom incomingSide) {
   if (next == currentView) return;
-  DynamicJsonDocument doc(8192);
+  DynamicJsonDocument doc(kJsonCapacity);
   // Keep both complete pages in sprites. This is the same double-buffering
   // model used by the official graphics examples: the display only receives
   // finished frames, never a half-drawn page.
@@ -548,7 +602,7 @@ void animateTo(View next, SlideFrom incomingSide) {
 }
 
 String normalizeStateForDisplay(const String& raw) {
-  DynamicJsonDocument doc(8192);
+  DynamicJsonDocument doc(kJsonCapacity);
   if (deserializeJson(doc, raw) != DeserializationError::Ok) return raw;
   doc.remove("version");
   doc.remove("server_time");
@@ -575,8 +629,8 @@ String normalizeStateForDisplay(const String& raw) {
 bool hasNewInteraction(const String& previousState, const String& nextState) {
   if (!stateInitialized || previousState.isEmpty()) return false;
 
-  DynamicJsonDocument previous(8192);
-  DynamicJsonDocument next(8192);
+  DynamicJsonDocument previous(kJsonCapacity);
+  DynamicJsonDocument next(kJsonCapacity);
   if (deserializeJson(previous, previousState) != DeserializationError::Ok ||
       deserializeJson(next, nextState) != DeserializationError::Ok) {
     return false;
@@ -680,7 +734,7 @@ void pollTelemetry() {
 }
 
 bool hasPendingInteraction() {
-  DynamicJsonDocument doc(4096);
+  DynamicJsonDocument doc(kJsonCapacity);
   return parseState(doc) && doc["interactions"].size() > 0;
 }
 
@@ -688,6 +742,7 @@ void goHome() {
   if (currentView == View::Tasks) animateTo(View::Home, SlideFrom::Right);
   else if (currentView == View::Approval) animateTo(View::Home, SlideFrom::Left);
   else if (currentView == View::Agents) animateTo(View::Home, SlideFrom::Top);
+  else if (currentView == View::AgentDetail) animateTo(View::Home, SlideFrom::Right);
 }
 
 void handleTouch() {
@@ -709,6 +764,7 @@ void handleTouch() {
       else if (dx < 0 && currentView == View::Home) animateTo(View::Approval, SlideFrom::Right);
       else if (dx < 0 && currentView == View::Tasks) animateTo(View::Home, SlideFrom::Right);
       else if (dx > 0 && currentView == View::Approval) animateTo(View::Home, SlideFrom::Left);
+      else if (dx < 0 && currentView == View::AgentDetail) animateTo(View::Agents, SlideFrom::Right);
     } else if (dy < 0 && currentView == View::Home) {
       animateTo(View::Agents, SlideFrom::Bottom);
     } else if (dy > 0 && currentView == View::Agents) {
@@ -717,7 +773,7 @@ void handleTouch() {
     return;
   }
 
-  DynamicJsonDocument current(8192);
+  DynamicJsonDocument current(kJsonCapacity);
   if (!parseState(current)) return;
   if (currentView == View::Home) {
     const bool pending = current["interactions"].size() > 0;
@@ -745,6 +801,19 @@ void handleTouch() {
         if (kind == "approval") answerPending(interaction, choice == 0 ? "approve" : "deny");
         else answerPending(interaction, "choose", choice);
         drawScreen();
+      }
+    }
+  }
+  if (currentView == View::Agents) {
+    JsonArray agents = current["agents"].as<JsonArray>();
+    const int count = min(kAgentSlots, static_cast<int>(agents.size()));
+    const int index = count > 0 ? sectorAt(x, y, count) : -1;
+    if (index >= 0 && index < count) {
+      JsonObject agent = agents[index].as<JsonObject>();
+      selectedAgentId = String(agent["id"] | "");
+      if (selectedAgentId.length()) {
+        postAction(String("{\"type\":\"select_agent\",\"agent_id\":\"") + selectedAgentId + "\"}");
+        animateTo(View::AgentDetail, SlideFrom::Left);
       }
     }
   }

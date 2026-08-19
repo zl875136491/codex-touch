@@ -57,15 +57,15 @@ class Relay:
         self.state.set_connection(True)
         self.state.set_usage(82, 4 * 86400 + 3 * 3600)
         samples = [
-            ("mock-build", "Build dashboard", "thinking", "Compiling firmware"),
-            ("mock-tests", "Run tests", "complete", "12 tests passed"),
-            ("mock-review", "Review changes", "needs_input", "Waiting for approval"),
-            ("mock-docs", "Update docs", "idle", "Ready"),
-            ("mock-api", "Inspect API", "thinking", "Polling relay"),
-            ("mock-release", "Prepare release", "error", "Needs attention"),
+            ("mock-build", "Build dashboard", "thinking", "Compiling firmware", "Building the current display frame..."),
+            ("mock-tests", "Run tests", "complete", "12 tests passed", "All relay and firmware checks passed."),
+            ("mock-review", "Review changes", "needs_input", "Waiting for approval", "The agent is waiting for a decision from the operator."),
+            ("mock-docs", "Update docs", "idle", "Ready", "Documentation is synchronized with the current Codex++ workflow."),
+            ("mock-api", "Inspect API", "thinking", "Polling relay", "GET /api/v1/state returned the latest snapshot."),
+            ("mock-release", "Prepare release", "error", "Needs attention", "Release packaging needs one more correction."),
         ]
-        for agent_id, title, status, detail in samples:
-            self.state.upsert_agent(agent_id, title=title, status=status, detail=detail, thread_id=agent_id)
+        for agent_id, title, status, detail, output in samples:
+            self.state.upsert_agent(agent_id, title=title, status=status, detail=detail, output=output, thread_id=agent_id)
         self.state.add_interaction(PendingInteraction(
             request_id="mock-approval-1", kind="approval",
             prompt="Allow the mock build command?",
@@ -128,6 +128,7 @@ class Relay:
                         title=thread.title,
                         status=thread.status,
                         detail=thread.model or thread.cwd,
+                        output=thread.output,
                         thread_id=thread.id,
                         updated_at=thread.updated_at,
                         source_updated_at=thread.updated_at,

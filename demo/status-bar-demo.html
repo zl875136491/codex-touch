@@ -125,25 +125,37 @@
 
           <g id="page-agents" class="page" style="display: none; visibility: hidden">
             <g stroke="#0b151c" stroke-width="3">
-              <path d="M233 15 A218 218 0 0 1 403.4 97.1 L292.4 185.6 A76 76 0 0 0 233 157 Z" fill="#e53935"/>
-              <path d="M403.4 97.1 A218 218 0 0 1 445.5 281.5 L307.1 249.9 A76 76 0 0 0 292.4 185.6 Z" fill="#f28c28"/>
-              <path d="M445.5 281.5 A218 218 0 0 1 327.6 429.4 L266 301.5 A76 76 0 0 0 307.1 249.9 Z" fill="#f4d03f"/>
-              <path d="M327.6 429.4 A218 218 0 0 1 138.4 429.4 L200 301.5 A76 76 0 0 0 266 301.5 Z" fill="#2ecc71"/>
-              <path d="M138.4 429.4 A218 218 0 0 1 20.5 281.5 L158.9 249.9 A76 76 0 0 0 200 301.5 Z" fill="#16c6c1"/>
-              <path d="M20.5 281.5 A218 218 0 0 1 62.6 97.1 L173.6 185.6 A76 76 0 0 0 158.9 249.9 Z" fill="#3478db"/>
-              <path d="M62.6 97.1 A218 218 0 0 1 233 15 L233 157 A76 76 0 0 0 173.6 185.6 Z" fill="#8e44ad"/>
+              <path d="M233 15 A218 218 0 0 1 422 124 L299 195 A76 76 0 0 0 233 157 Z" fill="#e53935"/>
+              <path d="M422 124 A218 218 0 0 1 422 342 L299 271 A76 76 0 0 0 299 195 Z" fill="#f28c28"/>
+              <path d="M422 342 A218 218 0 0 1 233 451 L233 309 A76 76 0 0 0 299 271 Z" fill="#f4d03f"/>
+              <path d="M233 451 A218 218 0 0 1 44 342 L167 271 A76 76 0 0 0 233 309 Z" fill="#2ecc71"/>
+              <path d="M44 342 A218 218 0 0 1 44 124 L167 195 A76 76 0 0 0 167 271 Z" fill="#16c6c1"/>
+              <path d="M44 124 A218 218 0 0 1 233 15 L233 157 A76 76 0 0 0 167 195 Z" fill="#3478db"/>
             </g>
             <g fill="#ffffff" font-size="18" font-weight="bold" text-anchor="middle">
               <text x="298" y="91">A1</text><text x="298" y="113" font-size="14">RUN</text>
-              <text x="379" y="194">A2</text><text x="379" y="216" font-size="14">DONE</text>
-              <text x="350" y="321" fill="#10151b">A3</text><text x="350" y="343" fill="#10151b" font-size="14">INPUT</text>
-              <text x="233" y="378" fill="#10151b">A4</text><text x="233" y="400" fill="#10151b" font-size="14">IDLE</text>
-              <text x="116" y="321">A5</text><text x="116" y="343" font-size="14">RUN</text>
-              <text x="87" y="194">A6</text><text x="87" y="216" font-size="14">ERROR</text>
-              <text x="168" y="91">A7</text><text x="168" y="113" font-size="14">WAIT</text>
+              <text x="384" y="244">A2</text><text x="384" y="266" font-size="14">DONE</text>
+              <text x="350" y="375" fill="#10151b">A3</text><text x="350" y="397" fill="#10151b" font-size="14">INPUT</text>
+              <text x="116" y="375" fill="#10151b">A4</text><text x="116" y="397" fill="#10151b" font-size="14">IDLE</text>
+              <text x="82" y="244">A5</text><text x="82" y="266" font-size="14">RUN</text>
+              <text x="168" y="91">A6</text><text x="168" y="113" font-size="14">ERROR</text>
             </g>
             <circle cx="233" cy="233" r="76" fill="#070b10" stroke="#26323d" stroke-width="3"/>
             <text x="233" y="245" fill="#63dcc5" font-size="26" font-weight="bold" text-anchor="middle">ACTIVE 6</text>
+          </g>
+
+          <g id="page-agent-detail" class="page" style="display: none; visibility: hidden">
+            <text id="detail-title" x="233" y="82" fill="#f1f6fa" font-size="21" font-weight="bold" text-anchor="middle"><tspan x="233" dy="0">Build dashboard</tspan></text>
+            <rect id="detail-status-fill" x="166" y="111" width="134" height="30" rx="15" fill="#e53935"/>
+            <text id="detail-status" x="233" y="132" fill="#ffffff" font-size="14" font-weight="bold" text-anchor="middle">RUN</text>
+            <text id="detail-meta" x="233" y="166" fill="#9fb1be" font-size="13" text-anchor="middle">gpt-5  |  /workspace/codex-touch</text>
+            <line x1="82" y1="191" x2="384" y2="191" stroke="#354752"/>
+            <text x="233" y="216" fill="#63dcc5" font-size="14" font-weight="bold" text-anchor="middle">LATEST OUTPUT</text>
+            <text id="detail-output" x="233" y="252" fill="#e6eef3" font-size="16" text-anchor="middle">
+              <tspan x="233" dy="0">Compiling the current display</tspan>
+              <tspan x="233" dy="24">frame and checking the relay...</tspan>
+            </text>
+            <text x="233" y="406" fill="#91a2b2" font-size="13" text-anchor="middle">LIVE AGENT OUTPUT</text>
           </g>
           </g>
 
@@ -175,9 +187,19 @@
   }
   const screen = document.querySelector('.screen');
   const buttons = [...document.querySelectorAll('[data-view]')];
-  const pages = Object.fromEntries(['home', 'tasks', 'approval', 'agents'].map(name => [name, document.getElementById('page-' + name)]));
+  const pages = Object.fromEntries(['home', 'tasks', 'approval', 'agents', 'agent-detail'].map(name => [name, document.getElementById('page-' + name)]));
   const requestedView = new URLSearchParams(window.location.search).get('view');
   let active = pages[requestedView] ? requestedView : 'home';
+  let selectedAgent = 0;
+  const agentData = [
+    { title: 'Build dashboard', status: 'RUN', color: '#e53935', text: 'Compiling the current display frame and checking the relay response.', meta: 'gpt-5  |  /workspace/codex-touch' },
+    { title: 'Run tests', status: 'DONE', color: '#f28c28', text: 'All relay and firmware checks passed. The latest build is ready.', meta: 'pytest  |  /workspace/codex-touch' },
+    { title: 'Review changes', status: 'INPUT', color: '#f4d03f', text: 'The agent is waiting for a decision from the operator.', meta: 'gpt-5  |  /workspace/codex-touch' },
+    { title: 'Update docs', status: 'IDLE', color: '#2ecc71', text: 'Documentation is synchronized with the current Codex++ workflow.', meta: 'docs  |  /workspace/codex-touch' },
+    { title: 'Inspect API', status: 'RUN', color: '#16c6c1', text: 'GET /api/v1/state returned the latest live snapshot.', meta: 'python  |  /workspace/codex-touch' },
+    { title: 'Prepare release', status: 'ERROR', color: '#3478db', text: 'Release packaging needs one more correction before publishing.', meta: 'release  |  /workspace/codex-touch' },
+    { title: 'Archive task', status: 'WAIT', color: '#8e44ad', text: 'Waiting for the next Codex++ event.', meta: 'codex++  |  /workspace/codex-touch' }
+  ];
   let start = null;
   function hidePage(page) {
     if (typeof page.getAnimations === 'function') {
@@ -226,19 +248,98 @@
     active = next;
   }
 
+  function wrapSvgText(text, maxChars = 30, maxLines = 6) {
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    const lines = [];
+    let line = '';
+    words.forEach(word => {
+      if (line && (line + ' ' + word).length > maxChars) { lines.push(line); line = ''; }
+      line += (line ? ' ' : '') + word;
+    });
+    if (line) lines.push(line);
+    return lines.slice(0, maxLines);
+  }
+
+  function updateAgentDetail(index) {
+    const agent = agentData[index] || agentData[0];
+    const title = document.getElementById('detail-title');
+    while (title.firstChild) title.removeChild(title.firstChild);
+    wrapSvgText(agent.title, 24, 2).forEach((line, lineIndex) => {
+      const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      tspan.setAttribute('x', '233');
+      tspan.setAttribute('dy', lineIndex === 0 ? '0' : '23');
+      tspan.textContent = line;
+      title.appendChild(tspan);
+    });
+    document.getElementById('detail-status').textContent = agent.status;
+    document.getElementById('detail-status-fill').setAttribute('fill', agent.color);
+    document.getElementById('detail-meta').textContent = agent.meta;
+    const output = document.getElementById('detail-output');
+    while (output.firstChild) output.removeChild(output.firstChild);
+    wrapSvgText(agent.text).forEach((line, lineIndex) => {
+      const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      tspan.setAttribute('x', '233');
+      tspan.setAttribute('dy', lineIndex === 0 ? '0' : '24');
+      tspan.textContent = line;
+      output.appendChild(tspan);
+    });
+  }
+
+  function agentIndexAt(event) {
+    const point = new DOMPoint(event.clientX, event.clientY);
+    const svg = screen.querySelector('svg');
+    const local = point.matrixTransform(svg.getScreenCTM().inverse());
+    const dx = local.x - 233;
+    const dy = local.y - 233;
+    const distance = Math.hypot(dx, dy);
+    const count = agentData.length - 1;
+    if (distance < 76 || distance > 218) return -1;
+    const degrees = (Math.atan2(dy, dx) * 180 / Math.PI + 90 + 360) % 360;
+    return Math.floor(degrees / (360 / count));
+  }
+
   buttons.forEach(button => button.addEventListener('click', () => showView(button.dataset.view)));
+  updateAgentDetail(selectedAgent);
+  let detailTick = 0;
+  window.setInterval(() => {
+    if (active !== 'agent-detail') return;
+    detailTick += 1;
+    const agent = agentData[selectedAgent] || agentData[0];
+    const suffixes = ['Waiting for the next Codex++ event.', 'Reading the newest rollout output.', 'Relay snapshot is live.'];
+    const output = agent.text + ' ' + suffixes[detailTick % suffixes.length];
+    const target = document.getElementById('detail-output');
+    while (target.firstChild) target.removeChild(target.firstChild);
+    wrapSvgText(output).forEach((line, lineIndex) => {
+      const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      tspan.setAttribute('x', '233');
+      tspan.setAttribute('dy', lineIndex === 0 ? '0' : '24');
+      tspan.textContent = line;
+      target.appendChild(tspan);
+    });
+  }, 2000);
   screen.addEventListener('pointerdown', event => { start = { x: event.clientX, y: event.clientY }; });
   screen.addEventListener('pointerup', event => {
     if (!start) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     start = null;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) return;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) {
+      if (active === 'agents') {
+        const index = agentIndexAt(event);
+        if (index >= 0) {
+          selectedAgent = index;
+          updateAgentDetail(selectedAgent);
+          showView('agent-detail', -1);
+        }
+      }
+      return;
+    }
     if (Math.abs(dx) >= Math.abs(dy)) {
       if (active === 'home' && dx > 0) showView('tasks', -1);
       else if (active === 'home' && dx < 0) showView('approval', 1);
       else if (active === 'tasks' && dx < 0) showView('home', 1);
       else if (active === 'approval' && dx > 0) showView('home', -1);
+      else if (active === 'agent-detail' && dx < 0) showView('agents', 1);
     } else if (active === 'home' && dy < 0) showView('agents', 2);
     else if (active === 'agents' && dy > 0) showView('home', -2);
   });

@@ -61,6 +61,7 @@ class LiveThread:
     rollout_path: str = ""
     archived: bool = False
     source_status: str = ""
+    output: str = ""
 
 
 @dataclass
@@ -569,6 +570,58 @@ def _rollout_state(path: str) -> Tuple[str, int]:
     return status, tokens
 
 
+def _rollout_text(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "\n".join(part for part in (_rollout_text(item) for item in value) if part)
+    if isinstance(value, dict):
+        if value.get("type") in {"output_text", "text", "input_text"}:
+            return str(value.get("text") or "")
+        for key in ("text", "message", "output", "content"):
+            if key in value:
+                text = _rollout_text(value[key])
+                if text:
+                    return text
+    return ""
+
+
+def read_rollout_output(path: str, max_chars: int = 720) -> str:
+    """Read the newest user-visible Codex++ output from a rollout tail."""
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        with open(path, "rb") as stream:
+            stream.seek(0, os.SEEK_END)
+            stream.seek(max(0, stream.tell() - 256 * 1024))
+            data = stream.read().decode("utf-8", "ignore")
+    except OSError:
+        return ""
+
+    latest = ""
+    for line in data.splitlines():
+        try:
+            value = json.loads(line)
+        except (TypeError, ValueError):
+            continue
+        payload = value.get("payload", value) if isinstance(value, dict) else {}
+        if not isinstance(payload, dict):
+            continue
+        kind = str(payload.get("type") or "")
+        text = ""
+        if kind == "agent_message":
+            text = _rollout_text(payload.get("message"))
+        elif kind == "message" and payload.get("role") == "assistant":
+            text = _rollout_text(payload.get("content"))
+        elif kind == "custom_tool_call_output":
+            text = _rollout_text(payload.get("output"))
+        if text.strip():
+            latest = text.strip()
+    if len(latest) > max_chars:
+        latest = latest[-max_chars:]
+    return latest
+
+
 def _read_threads_from_db(db_path: str, minimum: int, now: float) -> List[LiveThread]:
     if not os.path.exists(db_path):
         return []
@@ -613,6 +666,7 @@ def _read_threads_from_db(db_path: str, minimum: int, now: float) -> List[LiveTh
         updated_at = updated_ms / 1000.0
         rollout_path = str(row["rollout_path"] or "")
         source_status, rollout_tokens = _rollout_state(rollout_path)
+        output = read_rollout_output(rollout_path)
         result.append(LiveThread(
             id=str(row["id"] or ""),
             title=str(row["title"] or row["id"] or "Codex task")[:180],
@@ -626,6 +680,7 @@ def _read_threads_from_db(db_path: str, minimum: int, now: float) -> List[LiveTh
             rollout_path=rollout_path,
             archived=bool(row["archived"]),
             source_status=source_status,
+            output=output,
         ))
     return [thread for thread in result if thread.id]
 

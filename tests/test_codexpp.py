@@ -3,7 +3,7 @@ import os
 import sqlite3
 import time
 
-from server.codexpp import _candidate_sqlite_paths, extract_activity_event, extract_interaction_event, format_tokens, parse_daily_usage, read_live_threads
+from server.codexpp import _candidate_sqlite_paths, extract_activity_event, extract_interaction_event, format_tokens, parse_daily_usage, read_live_threads, read_rollout_output
 
 
 def test_parse_codexpp_daily_usage_sums_today():
@@ -155,6 +155,34 @@ def test_read_live_threads_uses_rollout_status_and_token_total(tmp_path):
     assert rows[0].status == "complete"
     assert rows[0].source_status == "complete"
     assert rows[0].tokens_used == 9876
+
+
+def test_read_rollout_output_reads_latest_agent_message(tmp_path):
+    path = tmp_path / "rollout.jsonl"
+    path.write_text(
+        "\n".join([
+            json.dumps({"type": "event_msg", "payload": {"type": "agent_message", "message": "First update"}}),
+            json.dumps({"type": "event_msg", "payload": {"type": "agent_message", "message": "Latest output"}}),
+        ]) + "\n",
+        encoding="utf-8",
+    )
+    assert read_rollout_output(str(path)) == "Latest output"
+
+
+def test_read_rollout_output_supports_assistant_content_and_limits_tail(tmp_path):
+    path = tmp_path / "rollout.jsonl"
+    long_text = "prefix " + ("x" * 800)
+    path.write_text(
+        json.dumps({"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": long_text}]}) + "\n",
+        encoding="utf-8",
+    )
+    output = read_rollout_output(str(path), max_chars=720)
+    assert len(output) == 720
+    assert output.endswith("x" * 720)
+
+
+def test_read_rollout_output_returns_empty_for_missing_file(tmp_path):
+    assert read_rollout_output(str(tmp_path / "missing.jsonl")) == ""
 
 
 def test_candidate_sqlite_paths_discovers_codexpp_layout(tmp_path, monkeypatch):
